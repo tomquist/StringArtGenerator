@@ -3,11 +3,37 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { vitePrerenderPlugin } from 'vite-prerender-plugin'
+import { readFileSync } from 'fs'
+
+// Custom plugin to serve blog HTML files during development
+function blogDevPlugin() {
+  return {
+    name: 'blog-dev-plugin',
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        // Check if the request is for a blog route
+        if (req.url.startsWith('/blog/')) {
+          const filePath = path.join(__dirname, 'public', req.url, 'index.html')
+          try {
+            const html = readFileSync(filePath, 'utf-8')
+            res.setHeader('Content-Type', 'text/html')
+            res.end(html)
+            return
+          } catch (err) {
+            // If file doesn't exist, continue to next middleware
+          }
+        }
+        next()
+      })
+    }
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    blogDevPlugin(),
     // Prerendering configuration for SEO optimization
     vitePrerenderPlugin({
       renderTarget: '#root',
