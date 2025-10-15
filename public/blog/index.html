@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO Meta Tags -->
+    <title>String Art Blog - Tutorials, Tips & Inspiration | String Art Generator</title>
+    <meta name="description" content="Learn everything about string art with our comprehensive tutorials, tips, and guides. From beginner basics to advanced techniques, master the art of creating stunning string art pieces." />
+    <meta name="keywords" content="string art blog, string art tutorials, how to make string art, string art tips, string art guide, DIY string art" />
+    <meta name="author" content="String Art Generator" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://stringartgenerator.co/blog/" />
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="String Art Blog - Tutorials, Tips & Inspiration" />
+    <meta property="og:description" content="Master string art with expert tutorials, material guides, and creative inspiration. Perfect for beginners and experienced artists alike." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stringartgenerator.co/blog/" />
+    <meta property="og:image" content="https://stringartgenerator.co/og-image.png" />
+    <meta property="og:site_name" content="String Art Generator" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="String Art Blog - Tutorials, Tips & Inspiration" />
+    <meta name="twitter:description" content="Master string art with expert tutorials, material guides, and creative inspiration." />
+    <meta name="twitter:image" content="https://stringartgenerator.co/og-image.png" />
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "String Art Generator Blog",
+      "description": "Comprehensive tutorials, tips, and guides for creating beautiful string art",
+      "url": "https://stringartgenerator.co/blog/",
+      "publisher": {
+        "@type": "Organization",
+        "name": "String Art Generator",
+        "url": "https://stringartgenerator.co"
+      }
+    }
+    </script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KL6930TBFL"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-KL6930TBFL');
+    </script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/blog/assets/css/blog.css" />
+    <style>
+      /* Inline critical styles from main site */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: hsl(0, 0%, 100%);
+        color: hsl(222, 47%, 11%);
+        line-height: 1.6;
+      }
+
+      /* Header styles matching main site */
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        width: 100%;
+        border-bottom: 2px solid hsl(214.3, 31.8%, 91.4%);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+      }
+
+      .header-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1.5rem;
+      }
+
+      .header-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+        color: inherit;
+        transition: opacity 0.2s;
+      }
+
+      .header-logo:hover {
+        opacity: 0.8;
+      }
+
+      .header-logo img {
+        height: 32px;
+        width: 32px;
+      }
+
+      .header-logo span {
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      .header-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .header-nav a {
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: hsl(215.4, 16.3%, 46.9%);
+        font-weight: 500;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+      }
+
+      .header-nav a:hover,
+      .header-nav a.active {
+        color: hsl(221, 83%, 53%);
+        background: hsl(210, 40%, 96%);
+      }
+
+      /* Footer styles matching main site */
+      footer {
+        position: relative;
+        width: 100%;
+        padding: 2rem 1rem;
+        text-align: center;
+        background: hsl(0, 0%, 100%);
+        border-top: 1px solid hsl(214.3, 31.8%, 91.4%);
+        font-size: 0.875rem;
+        color: hsl(215.4, 16.3%, 46.9%);
+        margin-top: 4rem;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 2rem;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+
+      .footer-links a {
+        color: hsl(221, 83%, 53%);
+        text-decoration: none;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        transition: all 0.15s ease-out;
+      }
+
+      .footer-links a:hover {
+        background: hsl(210, 40%, 96%);
+        transform: translateY(-1px);
+      }
+
+      @media (max-width: 768px) {
+        .header-nav {
+          display: none;
+        }
+
+        .header-logo span {
+          font-size: 0.875rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header>
+      <div class="header-container">
+        <a href="/" class="header-logo">
+          <img src="/favicon.svg" alt="String Art Generator Logo" />
+          <span>String Art Generator</span>
+        </a>
+        <nav class="header-nav">
+          <a href="/">Generator</a>
+          <a href="/#tutorial">Tutorial</a>
+          <a href="/#gallery">Gallery</a>
+          <a href="/#faq">FAQ</a>
+          <a href="/blog/" class="active">Blog</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Breadcrumb Navigation -->
+    <nav class="breadcrumb">
+      <a href="/">Home</a> <span class="breadcrumb-separator">›</span> <span>Blog</span>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="blog-listing">
+      <div class="blog-header">
+        <h1>String Art Blog</h1>
+        <p>Master the art of string art with our comprehensive tutorials, material guides, and expert tips</p>
+      </div>
+
+      <div class="blog-grid">
+        <!-- Article 1: How to Do String Art -->
+        <a href="/blog/how-to-do-string-art/" class="blog-card">
+          <img
+            src="/blog/assets/images/how-to-do-string-art-featured.jpg"
+            alt="String art tutorial showing hands creating string art on a circular board"
+            class="blog-card-image"
+            loading="lazy"
+          />
+          <div class="blog-card-content">
+            <div class="blog-card-meta">
+              <span class="blog-card-date">Jan 15, 2025</span>
+              <span class="blog-card-reading-time">8 min read</span>
+            </div>
+            <h2>How to Do String Art: Complete Beginner's Guide</h2>
+            <p class="blog-card-excerpt">
+              Learn how to create stunning string art from scratch with our comprehensive step-by-step tutorial. Perfect for beginners, we cover everything from materials to finishing techniques.
+            </p>
+            <span class="blog-card-cta">Read Guide →</span>
+          </div>
+        </a>
+
+        <!-- Article 2: What is String Art -->
+        <a href="/blog/what-is-string-art/" class="blog-card">
+          <img
+            src="/blog/assets/images/what-is-string-art-featured.jpg"
+            alt="Beautiful string art portrait showing the mathematical beauty of string art"
+            class="blog-card-image"
+            loading="lazy"
+          />
+          <div class="blog-card-content">
+            <div class="blog-card-meta">
+              <span class="blog-card-date">Jan 15, 2025</span>
+              <span class="blog-card-reading-time">7 min read</span>
+            </div>
+            <h2>What is String Art? History, Techniques & Modern Applications</h2>
+            <p class="blog-card-excerpt">
+              Discover the fascinating history and mathematical foundations of string art. Explore how this traditional craft has evolved into a modern art form combining geometry and creativity.
+            </p>
+            <span class="blog-card-cta">Learn More →</span>
+          </div>
+        </a>
+
+        <!-- Article 3: Best String for String Art -->
+        <a href="/blog/best-string-for-string-art/" class="blog-card">
+          <img
+            src="/blog/assets/images/best-string-for-string-art-featured.jpg"
+            alt="Various types of embroidery thread and string suitable for string art"
+            class="blog-card-image"
+            loading="lazy"
+          />
+          <div class="blog-card-content">
+            <div class="blog-card-meta">
+              <span class="blog-card-date">Jan 15, 2025</span>
+              <span class="blog-card-reading-time">6 min read</span>
+            </div>
+            <h2>Best String for String Art: Complete Material Guide</h2>
+            <p class="blog-card-excerpt">
+              Choosing the right string is crucial for beautiful string art. Compare embroidery thread, craft string, and specialized options to find the perfect material for your project.
+            </p>
+            <span class="blog-card-cta">Compare Materials →</span>
+          </div>
+        </a>
+
+        <!-- Article 4: How to Make String Art Patterns -->
+        <a href="/blog/how-to-make-string-art-patterns/" class="blog-card">
+          <img
+            src="/blog/assets/images/string-art-patterns-featured.jpg"
+            alt="Digital string art pattern design on computer screen with example outputs"
+            class="blog-card-image"
+            loading="lazy"
+          />
+          <div class="blog-card-content">
+            <div class="blog-card-meta">
+              <span class="blog-card-date">Jan 15, 2025</span>
+              <span class="blog-card-reading-time">7 min read</span>
+            </div>
+            <h2>How to Make String Art Patterns: Design & Planning</h2>
+            <p class="blog-card-excerpt">
+              Master pattern creation for string art projects. Learn to convert photos into patterns using our generator tool, plus manual design techniques for custom creations.
+            </p>
+            <span class="blog-card-cta">Create Patterns →</span>
+          </div>
+        </a>
+
+        <!-- Article 5: String Art for Beginners -->
+        <a href="/blog/string-art-for-beginners/" class="blog-card">
+          <img
+            src="/blog/assets/images/string-art-beginners-featured.jpg"
+            alt="Simple heart-shaped string art project perfect for beginners"
+            class="blog-card-image"
+            loading="lazy"
+          />
+          <div class="blog-card-content">
+            <div class="blog-card-meta">
+              <span class="blog-card-date">Jan 15, 2025</span>
+              <span class="blog-card-reading-time">6 min read</span>
+            </div>
+            <h2>String Art for Beginners: Your First Project</h2>
+            <p class="blog-card-excerpt">
+              Start your string art journey with a simple, rewarding first project. We'll guide you through creating a beautiful heart design with detailed instructions and troubleshooting tips.
+            </p>
+            <span class="blog-card-cta">Start Creating →</span>
+          </div>
+        </a>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/blog/">Blog</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+      </div>
+      <div style="font-size: 0.75rem; color: hsl(215.4, 16.3%, 46.9%);">
+        © 2025 String Art Generator. All rights reserved.
+      </div>
+    </footer>
+  </body>
+</html>

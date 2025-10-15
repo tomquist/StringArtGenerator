@@ -32,30 +32,36 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-2">
-            <button 
+            <button
               onClick={() => onNavigate?.('generator')}
               className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
             >
               Generator
             </button>
-            <button 
+            <button
               onClick={() => onNavigate?.('tutorial')}
               className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
             >
               Tutorial
             </button>
-            <button 
+            <button
               onClick={() => onNavigate?.('gallery')}
               className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
             >
               Gallery
             </button>
-            <button 
+            <button
               onClick={() => onNavigate?.('faq')}
               className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
             >
               FAQ
             </button>
+            <a
+              href="/blog/"
+              className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
+            >
+              Blog
+            </a>
           </nav>
         </div>
 
@@ -105,7 +111,7 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
                 <span>Gallery</span>
               </div>
             </button>
-            <button 
+            <button
               onClick={() => onNavigate?.('faq')}
               className="block w-full text-left touch-target-lg touch-feedback text-body-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground rounded-lg px-4 py-3 focus-mobile"
             >
@@ -114,6 +120,15 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
                 <span>FAQ</span>
               </div>
             </button>
+            <a
+              href="/blog/"
+              className="block w-full text-left touch-target-lg touch-feedback text-body-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground rounded-lg px-4 py-3 focus-mobile"
+            >
+              <div className="flex items-center space-x-3">
+                <span className="text-lg">📝</span>
+                <span>Blog</span>
+              </div>
+            </a>
           </nav>
         </div>
       )}
