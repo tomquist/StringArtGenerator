@@ -149,6 +149,8 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 3rem 1.5rem;
+  position: relative;
+  z-index: 1;
 }
 
 .article-header {
