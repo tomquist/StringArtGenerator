@@ -28,6 +28,14 @@
     <lastmod>2025-09-11</lastmod>
   </url>
 
+  <!-- Contact page -->
+  <url>
+    <loc>https://stringartgenerator.co/contact.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>2025-01-21</lastmod>
+  </url>
+
   <!-- Blog listing page -->
   <url>
     <loc>https://stringartgenerator.co/blog/</loc>
