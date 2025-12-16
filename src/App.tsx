@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { jsPDF } from 'jspdf'
 import { generateStringArt } from './lib/algorithms/stringArtEngine'
 import type { StringArtResult, OptimizationProgress } from './types'
 import { useMobileCanvas } from './hooks/useMobileCanvas'
@@ -156,6 +157,79 @@ function App() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  // Download sequence as PDF
+  const handleDownloadPDF = () => {
+    if (!result) return
+
+    const doc = new jsPDF()
+    const lineHeight = 7
+    let y = 15
+    const margin = 15
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const contentWidth = pageWidth - (margin * 2)
+
+    // Header
+    doc.setFontSize(18)
+    doc.text('String Art Pin Sequence', margin, y)
+    y += lineHeight * 2
+
+    // Metadata
+    doc.setFontSize(12)
+    doc.text(`Total Pins: ${result.parameters.numberOfPins}`, margin, y)
+    y += lineHeight
+    doc.text(`Total Lines: ${result.lineSequence.length}`, margin, y)
+    y += lineHeight
+    doc.text(`Thread Length: ${result.totalThreadLength.toFixed(2)} inches`, margin, y)
+    y += lineHeight * 2
+
+    // Sequence Header
+    doc.setFontSize(14)
+    doc.text('Pin Sequence:', margin, y)
+    y += lineHeight
+
+    // Sequence Content
+    doc.setFontSize(10)
+    const sequenceText = result.lineSequence.join(', ')
+    const splitText = doc.splitTextToSize(sequenceText, contentWidth)
+
+    // Add text page by page
+    const pageHeight = doc.internal.pageSize.getHeight()
+
+    splitText.forEach((line: string) => {
+      if (y > pageHeight - margin) {
+        doc.addPage()
+        y = margin
+      }
+      doc.text(line, margin, y)
+      y += lineHeight
+    })
+
+    doc.save(`string-art-sequence-${Date.now()}.pdf`)
+  }
+
+  // Download sequence as TXT
+  const handleDownloadTXT = () => {
+    if (!result) return
+
+    const content = `String Art Pin Sequence
+Total Pins: ${result.parameters.numberOfPins}
+Total Lines: ${result.lineSequence.length}
+Thread Length: ${result.totalThreadLength.toFixed(2)} inches
+
+Pin Sequence:
+${result.lineSequence.join(', ')}`
+
+    const blob = new Blob([content], { type: 'text/plain' })
+    const link = document.createElement('a')
+    link.download = `string-art-sequence-${Date.now()}.txt`
+    link.href = URL.createObjectURL(blob)
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
   }
 
   // Try Again handler - reset everything and go back to generator
@@ -860,10 +934,10 @@ function App() {
                         </div>
                       </div>
                       
-                      <div className="flex flex-col sm:flex-row gap-3 pt-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-6">
                         <Button 
                           variant="outline" 
-                          className="flex-1 touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
+                          className="touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
                           onClick={handleDownload}
                         >
                           <span className="mr-2">📥</span>
@@ -871,7 +945,23 @@ function App() {
                         </Button>
                         <Button 
                           variant="outline" 
-                          className="flex-1 touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
+                          className="touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
+                          onClick={handleDownloadPDF}
+                        >
+                          <span className="mr-2">📄</span>
+                          Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
+                          onClick={handleDownloadTXT}
+                        >
+                          <span className="mr-2">📝</span>
+                          Download TXT
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
                           onClick={handleTryAgain}
                         >
                           <span className="mr-2">🔄</span>
