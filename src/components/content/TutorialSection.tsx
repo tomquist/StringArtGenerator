@@ -178,7 +178,7 @@ export function TutorialSection() {
     // This ensures the content can be updated without code changes
     const loadFreshContent = async () => {
       try {
-        const response = await fetch('/content/tutorial/tutorial.json')
+        const response = await fetch(`${import.meta.env.BASE_URL}content/tutorial/tutorial.json`)
         if (response.ok) {
           const data = await response.json()
           // Only update if the fetched data is different from SEO content

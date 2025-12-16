@@ -21,7 +21,7 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
           >
             <div className="h-9 w-9 flex items-center justify-center">
               <img 
-                src="/favicon.svg" 
+                src={`${import.meta.env.BASE_URL}favicon.svg`}
                 alt="String Art Generator Logo"
                 className="h-8 w-8"
               />
@@ -57,13 +57,13 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
               FAQ
             </button>
             <a
-              href="/contact.html"
+              href={`${import.meta.env.BASE_URL}contact.html`}
               className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
             >
               Contact
             </a>
             <a
-              href="/blog/"
+              href={`${import.meta.env.BASE_URL}blog/`}
               className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
             >
               Blog
@@ -127,7 +127,7 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
               </div>
             </button>
             <a
-              href="/contact.html"
+              href={`${import.meta.env.BASE_URL}contact.html`}
               className="block w-full text-left touch-target-lg touch-feedback text-body-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground rounded-lg px-4 py-3 focus-mobile"
             >
               <div className="flex items-center space-x-3">
@@ -136,7 +136,7 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
               </div>
             </a>
             <a
-              href="/blog/"
+              href={`${import.meta.env.BASE_URL}blog/`}
               className="block w-full text-left touch-target-lg touch-feedback text-body-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground rounded-lg px-4 py-3 focus-mobile"
             >
               <div className="flex items-center space-x-3">

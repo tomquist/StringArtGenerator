@@ -131,7 +131,7 @@ export function FAQSection() {
     // Optional: Load fresh content from JSON to override SEO content
     const loadFreshContent = async () => {
       try {
-        const response = await fetch('/content/faq/faq.json')
+        const response = await fetch(`${import.meta.env.BASE_URL}content/faq/faq.json`)
         if (response.ok) {
           const data = await response.json()
           // Transform the data to match our interface if needed

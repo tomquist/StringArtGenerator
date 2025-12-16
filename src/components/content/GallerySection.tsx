@@ -54,7 +54,7 @@ export function GallerySection() {
     // Lazy load gallery content
     const loadGalleryContent = async () => {
       try {
-        const response = await fetch('/content/gallery/gallery.json')
+        const response = await fetch(`${import.meta.env.BASE_URL}content/gallery/gallery.json`)
         if (!response.ok) {
           throw new Error('Failed to load gallery content')
         }
