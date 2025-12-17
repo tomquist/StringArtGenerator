@@ -210,13 +210,20 @@ function App() {
     doc.text('This report includes a high-resolution image, a 1:1 scale stencil/template, and the full pin sequence.', margin, y)
     doc.setTextColor(0)
 
-    // --- Page 2: High Resolution Image ---
-    doc.addPage()
+    // --- Page 2: High Resolution Image (1:1 Scale) ---
+    // User requested "full 1:1 size according to the entered frame diameter"
+    const previewPageSize = frameDiameter + (margin * 2)
+    // jsPDF addPage signature can be flexible, but with format array, orientation is needed
+    // However, if we pass custom size array as first arg, second should be orientation 'p' or 'l'
+    doc.addPage([previewPageSize, previewPageSize] as any, previewPageSize > previewPageSize ? 'l' : 'p')
+
     doc.setFontSize(18)
-    doc.text('Preview', margin, margin)
+    doc.text('Preview (1:1 Scale)', margin, margin)
 
     // Create high-res canvas for the image
-    const canvasSize = 2000
+    // We want high resolution, so we shouldn't just rely on screen pixels.
+    // But canvas has limits. 4000px is safe.
+    const canvasSize = 4000
     const canvas = document.createElement('canvas')
     canvas.width = canvasSize
     canvas.height = canvasSize
@@ -226,31 +233,31 @@ function App() {
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, canvasSize, canvasSize)
 
-    // Draw lines - matching UI visual style
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'
-    // UI uses 1.0px width on 600px canvas. Here we have 2000px canvas.
-    // So ratio is 2000/600 = 3.33.
-    ctx.lineWidth = 3.33
+    // Draw lines
+    // Adjusted for high resolution: thinner lines and lower opacity
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+    ctx.lineWidth = 1.0 // Keep it fine
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
     const scale = canvasSize / result.parameters.imgSize
     const pinCoords = result.pinCoordinates
 
-    ctx.beginPath()
-    // Optimization: Draw in batches if needed, but for PDF generation we can just draw all
+    // Draw lines individually to ensure alpha blending works correctly
+    // This creates the density gradient effect characteristic of string art
     for (let i = 0; i < result.lineSequence.length - 1; i++) {
+        ctx.beginPath()
         const p1 = pinCoords[result.lineSequence[i]]
         const p2 = pinCoords[result.lineSequence[i+1]]
         ctx.moveTo(p1[0] * scale, p1[1] * scale)
         ctx.lineTo(p2[0] * scale, p2[1] * scale)
+        ctx.stroke()
     }
-    ctx.stroke()
 
-    // Add image to PDF
+    // Add image to PDF at 1:1 size
     const imgData = canvas.toDataURL('image/jpeg', 0.8)
-    const imgSizeOnPdf = Math.min(pageWidth - 2 * margin, doc.internal.pageSize.getHeight() - 40)
-    doc.addImage(imgData, 'JPEG', margin, margin + 10, imgSizeOnPdf, imgSizeOnPdf)
+    // The image should be frameDiameter in size
+    doc.addImage(imgData, 'JPEG', margin, margin + 10, frameDiameter, frameDiameter)
 
 
     // --- Page 3: Template / Stencil (1:1 Scale) ---
@@ -304,7 +311,7 @@ function App() {
         const y = cy + Math.sin(angle) * radius
 
         // Draw pin dot
-        doc.setFillColor(0)
+        doc.setFillColor(0, 0, 0)
         doc.circle(x, y, pinRadius, 'F')
 
         // Draw pin number
@@ -312,7 +319,7 @@ function App() {
         const labelX = cx + Math.cos(angle) * (radius + labelDist)
         const labelY = cy + Math.sin(angle) * (radius + labelDist)
 
-        doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' })
+        doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' } as any)
     }
 
 
@@ -323,7 +330,8 @@ function App() {
     doc.text('Pin Sequence', margin, y)
     y += 10
 
-    doc.setFontSize(9) // Smaller font for 4 columns
+    // 4 columns as requested by reviewer
+    doc.setFontSize(9)
     const cols = 4
     const colWidth = (pageWidth - (margin * 2)) / cols
     const rowsPerColumn = Math.floor((doc.internal.pageSize.getHeight() - y - margin) / 5) // 5mm per row
@@ -345,7 +353,7 @@ function App() {
                 const stepNumber = currentStep + 1
 
                 // Format: 1) 0 -> 116
-                doc.text(`${stepNumber}) ${fromPin} → ${toPin}`, xBase, y + (row * 5))
+                doc.text(`${stepNumber}) ${fromPin} -> ${toPin}`, xBase, y + (row * 5))
 
                 currentStep++
             }
@@ -358,6 +366,100 @@ function App() {
     }
 
     doc.save(`string-art-plan-${frameDiameter}mm-${Date.now()}.pdf`)
+  }
+
+  // Download template as PNG image
+  const handleDownloadTemplateImage = () => {
+    if (!result) return
+
+    // Create high-res canvas for the template
+    const canvasSize = 4000 // High res for printing
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+    const ctx = canvas.getContext('2d')!
+
+    // Fill white background
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+    // Draw center and circle
+    const cx = canvasSize / 2
+    const cy = canvasSize / 2
+
+    // Leave some padding
+    const padding = 100
+    const radius = (canvasSize - 2 * padding) / 2
+
+    // Draw main circle
+    ctx.strokeStyle = 'black'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius, 0, 2 * Math.PI)
+    ctx.stroke()
+
+    // Draw pins
+    const pinRadius = 4
+    ctx.fillStyle = 'black'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+
+    // Adjust font size based on number of pins to prevent overlap
+    // For 4000px canvas, we want readable numbers.
+    // Circumference = PI * diameter approx 3800 * PI = 12000px.
+    // 12000 / numPins (e.g. 300) = 40px spacing.
+    // Font size should be smaller than spacing.
+    const numPins = result.parameters.numberOfPins
+    // Calculate available arc length per pin
+    const circumference = Math.PI * (radius * 2)
+    const arcPerPin = circumference / numPins
+    // Set font size to 60% of available space, but clamped between 24 and 80
+    const fontSize = Math.max(24, Math.min(80, Math.floor(arcPerPin * 0.6)))
+    ctx.font = `${fontSize}px Arial`
+
+    const labelDist = 40 // distance for numbers
+
+    for (let i = 0; i < numPins; i++) {
+        const pin = result.pinCoordinates[i]
+        const imgCenter = result.parameters.imgSize / 2
+
+        const dx = pin[0] - imgCenter
+        const dy = pin[1] - imgCenter
+        const angle = Math.atan2(dy, dx)
+
+        // Place exactly on radius
+        const x = cx + Math.cos(angle) * radius
+        const y = cy + Math.sin(angle) * radius
+
+        // Draw pin dot
+        ctx.beginPath()
+        ctx.arc(x, y, pinRadius, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // Draw pin number
+        // Rotate text to align with radius for better readability?
+        // Or just place outside. Placing outside is standard.
+        const labelX = cx + Math.cos(angle) * (radius + labelDist)
+        const labelY = cy + Math.sin(angle) * (radius + labelDist)
+
+        // Optional: Rotate context for number
+        ctx.save()
+        ctx.translate(labelX, labelY)
+        ctx.rotate(angle + Math.PI / 2) // Rotate to be perpendicular to radius? Or aligned?
+        // Let's keep it simple: just draw text at location, maybe rotated if crowded.
+        // For now, simple text.
+        ctx.restore()
+
+        ctx.fillText(i.toString(), labelX, labelY)
+    }
+
+    // Download
+    const link = document.createElement('a')
+    link.download = `string-art-template-${Date.now()}.png`
+    link.href = canvas.toDataURL('image/png')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   // Download sequence as TXT
@@ -1117,6 +1219,14 @@ ${result.lineSequence.join(', ')}`
                         >
                           <span className="mr-2">📄</span>
                           Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
+                          onClick={handleDownloadTemplateImage}
+                        >
+                          <span className="mr-2">🎯</span>
+                          Download Template
                         </Button>
                         <Button
                           variant="outline"
