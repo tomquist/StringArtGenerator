@@ -283,6 +283,29 @@ function App() {
     doc.setLineWidth(0.2) // Thinner line for precision
     doc.circle(cx, cy, radius, 'S')
 
+    // Draw Center Dot
+    const centerDotRadius = 2
+    doc.setFillColor(0, 0, 0)
+    doc.circle(cx, cy, centerDotRadius, 'F')
+
+    // Draw 4 Dotted Lines
+    doc.setLineWidth(0.1) // Fine line
+    doc.setLineDashPattern([2, 2], 0) // Dotted pattern: 2mm dash, 2mm gap
+
+    // 1. Horizontal
+    doc.line(cx - radius, cy, cx + radius, cy)
+    // 2. Vertical
+    doc.line(cx, cy - radius, cx, cy + radius)
+    // 3. Diagonal 1 (45 deg)
+    const r45 = radius
+    const d1x = r45 * Math.cos(Math.PI / 4)
+    const d1y = r45 * Math.sin(Math.PI / 4)
+    doc.line(cx - d1x, cy - d1y, cx + d1x, cy + d1y)
+    // 4. Diagonal 2 (-45 deg)
+    doc.line(cx - d1x, cy + d1y, cx + d1x, cy - d1y)
+
+    doc.setLineDashPattern([], 0) // Reset to solid
+
     // Draw pins
     const pinRadius = 0.5 // 1mm diameter hole marker
     doc.setFontSize(7) // Slightly smaller font
@@ -398,6 +421,45 @@ function App() {
     ctx.beginPath()
     ctx.arc(cx, cy, radius, 0, 2 * Math.PI)
     ctx.stroke()
+
+    // Draw Center Dot
+    ctx.fillStyle = 'black'
+    ctx.beginPath()
+    ctx.arc(cx, cy, 20, 0, 2 * Math.PI)
+    ctx.fill()
+
+    // Draw 4 Dotted Lines
+    ctx.strokeStyle = 'black'
+    ctx.lineWidth = 2 // Scaled line width (same as circle)
+    ctx.setLineDash([20, 20]) // Scaled dash pattern
+
+    // 1. Horizontal
+    ctx.beginPath()
+    ctx.moveTo(cx - radius, cy)
+    ctx.lineTo(cx + radius, cy)
+    ctx.stroke()
+
+    // 2. Vertical
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - radius)
+    ctx.lineTo(cx, cy + radius)
+    ctx.stroke()
+
+    // 3. Diagonal 1
+    const d1x = radius * Math.cos(Math.PI / 4)
+    const d1y = radius * Math.sin(Math.PI / 4)
+    ctx.beginPath()
+    ctx.moveTo(cx - d1x, cy - d1y)
+    ctx.lineTo(cx + d1x, cy + d1y)
+    ctx.stroke()
+
+    // 4. Diagonal 2
+    ctx.beginPath()
+    ctx.moveTo(cx - d1x, cy + d1y)
+    ctx.lineTo(cx + d1x, cy - d1y)
+    ctx.stroke()
+
+    ctx.setLineDash([]) // Reset
 
     // Draw pins
     const pinRadius = 4
