@@ -27,11 +27,9 @@ const MobileSlider = React.forwardRef<HTMLInputElement, MobileSliderProps>(
     disabled = false,
     className,
     trackClassName,
-    thumbClassName,
     label,
     showValue = true,
     formatValue = (val) => val.toString(),
-    orientation = "horizontal",
     ...props
   }, ref) => {
     const [isDragging, setIsDragging] = React.useState(false)

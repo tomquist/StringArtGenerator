@@ -70,6 +70,7 @@ function App() {
   const [numberOfLines, setNumberOfLines] = useState(4000)
   const [lineWeight, setLineWeight] = useState(20)
   const [imgSize, setImgSize] = useState(500)
+  const [frameDiameter, setFrameDiameter] = useState(500) // mm
 
   // Preset configurations
   const presets: PresetConfig[] = [
@@ -160,53 +161,306 @@ function App() {
   }
 
   // Download sequence as PDF
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!result) return
 
     const doc = new jsPDF()
-    const lineHeight = 7
-    let y = 15
-    const margin = 15
+    const margin = 20
+    let y = margin
     const pageWidth = doc.internal.pageSize.getWidth()
-    const contentWidth = pageWidth - (margin * 2)
+
+    // --- Page 1: Report & Statistics ---
 
     // Header
-    doc.setFontSize(18)
-    doc.text('String Art Pin Sequence', margin, y)
-    y += lineHeight * 2
+    doc.setFontSize(24)
+    doc.text('String Art Generator Report', margin, y)
+    y += 15
 
-    // Metadata
+    // Input Parameters
+    doc.setFontSize(16)
+    doc.text('Input Parameters', margin, y)
+    y += 10
     doc.setFontSize(12)
-    doc.text(`Total Pins: ${result.parameters.numberOfPins}`, margin, y)
-    y += lineHeight
-    doc.text(`Total Lines: ${result.lineSequence.length}`, margin, y)
-    y += lineHeight
-    doc.text(`Thread Length: ${result.totalThreadLength.toFixed(2)} inches`, margin, y)
-    y += lineHeight * 2
+    doc.text(`Frame Diameter: ${frameDiameter} mm`, margin, y)
+    y += 7
+    doc.text(`Number of Pins: ${result.parameters.numberOfPins}`, margin, y)
+    y += 7
+    doc.text(`Number of Lines: ${result.parameters.numberOfLines}`, margin, y) // Use actual lines or requested? Result parameters has requested.
+    y += 7
+    doc.text(`Line Weight: ${result.parameters.lineWeight}`, margin, y)
+    y += 7
+    doc.text(`Image Size (Processing): ${result.parameters.imgSize}px`, margin, y)
+    y += 15
 
-    // Sequence Header
-    doc.setFontSize(14)
-    doc.text('Pin Sequence:', margin, y)
-    y += lineHeight
+    // Statistics
+    doc.setFontSize(16)
+    doc.text('Statistics', margin, y)
+    y += 10
+    doc.setFontSize(12)
+    doc.text(`Total Lines Drawn: ${result.lineSequence.length}`, margin, y)
+    y += 7
+    doc.text(`Total Thread Length: ${(result.totalThreadLength / 1000).toFixed(2)} meters`, margin, y)
+    y += 7
+    doc.text(`Processing Time: ${(result.processingTimeMs / 1000).toFixed(2)} seconds`, margin, y)
+    y += 15
 
-    // Sequence Content
+    // Note
     doc.setFontSize(10)
-    const sequenceText = result.lineSequence.join(', ')
-    const splitText = doc.splitTextToSize(sequenceText, contentWidth)
+    doc.setTextColor(100)
+    doc.text('This report includes a high-resolution image, a 1:1 scale stencil/template, and the full pin sequence.', margin, y)
+    doc.setTextColor(0)
 
-    // Add text page by page
-    const pageHeight = doc.internal.pageSize.getHeight()
+    // --- Page 2: High Resolution Image (1:1 Scale) ---
+    // User requested "full 1:1 size according to the entered frame diameter"
+    const previewPageSize = frameDiameter + (margin * 2)
+    // jsPDF addPage signature can be flexible, but with format array, orientation is needed
+    // However, if we pass custom size array as first arg, second should be orientation 'p' or 'l'
+    doc.addPage([previewPageSize, previewPageSize] as unknown as [number, number], previewPageSize > previewPageSize ? 'l' : 'p')
 
-    splitText.forEach((line: string) => {
-      if (y > pageHeight - margin) {
-        doc.addPage()
-        y = margin
-      }
-      doc.text(line, margin, y)
-      y += lineHeight
-    })
+    doc.setFontSize(18)
+    doc.text('Preview (1:1 Scale)', margin, margin)
 
-    doc.save(`string-art-sequence-${Date.now()}.pdf`)
+    // Create high-res canvas for the image
+    // We want high resolution, so we shouldn't just rely on screen pixels.
+    // But canvas has limits. 4000px is safe.
+    const canvasSize = 4000
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+    const ctx = canvas.getContext('2d')!
+
+    // Fill white background
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+    // Draw lines
+    // Adjusted for high resolution: thinner lines and lower opacity
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+    ctx.lineWidth = 1.0 // Keep it fine
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    const scale = canvasSize / result.parameters.imgSize
+    const pinCoords = result.pinCoordinates
+
+    // Draw lines individually to ensure alpha blending works correctly
+    // This creates the density gradient effect characteristic of string art
+    for (let i = 0; i < result.lineSequence.length - 1; i++) {
+        ctx.beginPath()
+        const p1 = pinCoords[result.lineSequence[i]]
+        const p2 = pinCoords[result.lineSequence[i+1]]
+        ctx.moveTo(p1[0] * scale, p1[1] * scale)
+        ctx.lineTo(p2[0] * scale, p2[1] * scale)
+        ctx.stroke()
+    }
+
+    // Add image to PDF at 1:1 size
+    const imgData = canvas.toDataURL('image/jpeg', 0.8)
+    // The image should be frameDiameter in size
+    doc.addImage(imgData, 'JPEG', margin, margin + 10, frameDiameter, frameDiameter)
+
+
+    // --- Page 3: Template / Stencil (1:1 Scale) ---
+    // Frame diameter is in mm.
+    // We need a page size that fits the frame + margins.
+    const frameDiameterMm = result.parameters.hoopDiameter
+    const pageMarginMm = 20
+    const templatePageSize = frameDiameterMm + (pageMarginMm * 2)
+
+    doc.addPage([templatePageSize, templatePageSize], templatePageSize > templatePageSize ? 'l' : 'p')
+
+    doc.setFontSize(14)
+    doc.text('Template / Stencil (1:1 Scale)', pageMarginMm, pageMarginMm - 5)
+    doc.setFontSize(10)
+    doc.text(`Diameter: ${frameDiameterMm}mm`, pageMarginMm, pageMarginMm)
+
+    // Center of the page
+    const cx = templatePageSize / 2
+    const cy = templatePageSize / 2
+    const radius = frameDiameterMm / 2
+
+    // Draw main circle
+    doc.setLineWidth(0.2) // Thinner line for precision
+    doc.circle(cx, cy, radius, 'S')
+
+    // Draw pins
+    const pinRadius = 0.5 // 1mm diameter hole marker
+    doc.setFontSize(7) // Slightly smaller font
+
+    // Calculate pins strictly on the circle to ensure alignment
+    // The pinCalculation algorithm places pins on a circle inscribed in imgSize
+    // So we can recalculate positions based on angle to ensure perfect circle alignment
+    const numPins = result.parameters.numberOfPins
+
+    for (let i = 0; i < numPins; i++) {
+        // Angle in radians. Pins are usually distributed starting from 0 or -PI/2?
+        // Let's check pinCalculation.ts. Usually it's i * 2PI / N.
+        // But to be safe and match the generated art, we should trust pinCoordinates
+        // but project them onto the circle if they are slightly off due to rasterization.
+        // Or better: use the angle from the center.
+
+        const pin = result.pinCoordinates[i]
+        const imgCenter = result.parameters.imgSize / 2
+
+        const dx = pin[0] - imgCenter
+        const dy = pin[1] - imgCenter
+        const angle = Math.atan2(dy, dx)
+
+        // Place exactly on radius
+        const x = cx + Math.cos(angle) * radius
+        const y = cy + Math.sin(angle) * radius
+
+        // Draw pin dot
+        doc.setFillColor(0, 0, 0)
+        doc.circle(x, y, pinRadius, 'F')
+
+        // Draw pin number
+        const labelDist = 3 // 3mm offset
+        const labelX = cx + Math.cos(angle) * (radius + labelDist)
+        const labelY = cy + Math.sin(angle) * (radius + labelDist)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' } as any)
+    }
+
+
+    // --- Page 4+: Pin Sequence ---
+    doc.addPage('a4', 'p')
+    y = margin
+    doc.setFontSize(18)
+    doc.text('Pin Sequence', margin, y)
+    y += 10
+
+    // 4 columns as requested by reviewer
+    doc.setFontSize(9)
+    const cols = 4
+    const colWidth = (pageWidth - (margin * 2)) / cols
+    const rowsPerColumn = Math.floor((doc.internal.pageSize.getHeight() - y - margin) / 5) // 5mm per row
+
+    let currentStep = 0
+    const sequence = result.lineSequence
+    const totalSteps = sequence.length - 1
+
+    while (currentStep < totalSteps) {
+        // Draw columns
+        for (let col = 0; col < cols; col++) {
+            const xBase = margin + (col * colWidth)
+
+            for (let row = 0; row < rowsPerColumn; row++) {
+                if (currentStep >= totalSteps) break
+
+                const fromPin = sequence[currentStep]
+                const toPin = sequence[currentStep + 1]
+                const stepNumber = currentStep + 1
+
+                // Format: 1) 0 -> 116
+                doc.text(`${stepNumber}) ${fromPin} -> ${toPin}`, xBase, y + (row * 5))
+
+                currentStep++
+            }
+        }
+
+        if (currentStep < totalSteps) {
+            doc.addPage()
+            y = margin // Reset y for new page
+        }
+    }
+
+    doc.save(`string-art-plan-${frameDiameter}mm-${Date.now()}.pdf`)
+  }
+
+  // Download template as PNG image
+  const handleDownloadTemplateImage = () => {
+    if (!result) return
+
+    // Create high-res canvas for the template
+    const canvasSize = 4000 // High res for printing
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+    const ctx = canvas.getContext('2d')!
+
+    // Fill white background
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+    // Draw center and circle
+    const cx = canvasSize / 2
+    const cy = canvasSize / 2
+
+    // Leave some padding
+    const padding = 100
+    const radius = (canvasSize - 2 * padding) / 2
+
+    // Draw main circle
+    ctx.strokeStyle = 'black'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius, 0, 2 * Math.PI)
+    ctx.stroke()
+
+    // Draw pins
+    const pinRadius = 4
+    ctx.fillStyle = 'black'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+
+    // Adjust font size based on number of pins to prevent overlap
+    // For 4000px canvas, we want readable numbers.
+    // Circumference = PI * diameter approx 3800 * PI = 12000px.
+    // 12000 / numPins (e.g. 300) = 40px spacing.
+    // Font size should be smaller than spacing.
+    const numPins = result.parameters.numberOfPins
+    // Calculate available arc length per pin
+    const circumference = Math.PI * (radius * 2)
+    const arcPerPin = circumference / numPins
+    // Set font size to 60% of available space, but clamped between 24 and 80
+    const fontSize = Math.max(24, Math.min(80, Math.floor(arcPerPin * 0.6)))
+    ctx.font = `${fontSize}px Arial`
+
+    const labelDist = 40 // distance for numbers
+
+    for (let i = 0; i < numPins; i++) {
+        const pin = result.pinCoordinates[i]
+        const imgCenter = result.parameters.imgSize / 2
+
+        const dx = pin[0] - imgCenter
+        const dy = pin[1] - imgCenter
+        const angle = Math.atan2(dy, dx)
+
+        // Place exactly on radius
+        const x = cx + Math.cos(angle) * radius
+        const y = cy + Math.sin(angle) * radius
+
+        // Draw pin dot
+        ctx.beginPath()
+        ctx.arc(x, y, pinRadius, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // Draw pin number
+        // Rotate text to align with radius for better readability?
+        // Or just place outside. Placing outside is standard.
+        const labelX = cx + Math.cos(angle) * (radius + labelDist)
+        const labelY = cy + Math.sin(angle) * (radius + labelDist)
+
+        // Optional: Rotate context for number
+        ctx.save()
+        ctx.translate(labelX, labelY)
+        ctx.rotate(angle + Math.PI / 2) // Rotate to be perpendicular to radius? Or aligned?
+        // Let's keep it simple: just draw text at location, maybe rotated if crowded.
+        // For now, simple text.
+        ctx.restore()
+
+        ctx.fillText(i.toString(), labelX, labelY)
+    }
+
+    // Download
+    const link = document.createElement('a')
+    link.download = `string-art-template-${Date.now()}.png`
+    link.href = canvas.toDataURL('image/png')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   // Download sequence as TXT
@@ -398,6 +652,7 @@ ${result.lineSequence.join(', ')}`
               lineWeight,
               minDistance: Math.max(2, Math.floor(numberOfPins / 36)),
               imgSize,
+              hoopDiameter: frameDiameter,
             },
             (progressUpdate, currentLineSequence, pinCoordinates) => {
               setProgress(progressUpdate)
@@ -764,6 +1019,21 @@ ${result.lineSequence.join(', ')}`
                             <div className="text-body-sm text-subtle mt-2 leading-relaxed">
                               Higher resolution improves quality but takes longer.
                             </div>
+
+                            <MobileSlider
+                              label="Frame Diameter"
+                              min={200}
+                              max={1000}
+                              step={10}
+                              value={frameDiameter}
+                              onValueChange={setFrameDiameter}
+                              disabled={isProcessing}
+                              formatValue={(val) => `${val}mm`}
+                              className="w-full"
+                            />
+                            <div className="text-body-sm text-subtle mt-2 leading-relaxed">
+                              Physical size of the frame. Used for thread length calculation and template generation.
+                            </div>
                           </div>
                           
                           <div className="bg-muted/50 rounded-lg p-6">
@@ -904,7 +1174,7 @@ ${result.lineSequence.join(', ')}`
                             </div>
                             <div className="space-y-1">
                               <div className="text-caption text-emphasis">THREAD LENGTH</div>
-                              <div className="font-medium">{progress.threadLength.toFixed(2)}″</div>
+                              <div className="font-medium">{(progress.threadLength / 1000).toFixed(2)}m</div>
                             </div>
                           </div>
                         </div>
@@ -926,7 +1196,7 @@ ${result.lineSequence.join(', ')}`
                         </div>
                         <div className="space-y-1">
                           <div className="text-caption text-emphasis">THREAD LENGTH</div>
-                          <div className="text-body-sm font-medium">{result.totalThreadLength.toFixed(2)}″</div>
+                          <div className="text-body-sm font-medium">{(result.totalThreadLength / 1000).toFixed(2)}m</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-caption text-emphasis">ANCHOR PINS</div>
@@ -950,6 +1220,14 @@ ${result.lineSequence.join(', ')}`
                         >
                           <span className="mr-2">📄</span>
                           Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="touch-target-lg text-body-sm font-medium touch-feedback focus-mobile"
+                          onClick={handleDownloadTemplateImage}
+                        >
+                          <span className="mr-2">🎯</span>
+                          Download Template
                         </Button>
                         <Button
                           variant="outline"

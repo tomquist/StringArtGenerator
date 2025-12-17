@@ -139,9 +139,9 @@ export function FAQSection() {
             title: data.title,
             description: data.description,
             subtitle: data.description, // For backward compatibility
-            categories: data.categories.map((cat: any) => ({
+            categories: data.categories.map((cat: { id: string; questions?: FAQQuestion[] }) => ({
               ...cat,
-              questions: data.items ? data.items.filter((item: any) => item.category === cat.id) : cat.questions || []
+              questions: data.items ? data.items.filter((item: { category: string }) => item.category === cat.id) : cat.questions || []
             }))
           }
           // Only update if the fetched data is significantly different
@@ -149,7 +149,7 @@ export function FAQSection() {
             setFaqData(transformedData)
           }
         }
-      } catch (err) {
+      } catch {
         // Silently fail - SEO content is already loaded
         console.info('Using embedded FAQ content for SEO')
       }

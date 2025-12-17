@@ -97,7 +97,7 @@ export interface AppContent {
 export interface ContentLoadState {
   isLoading: boolean
   error: string | null
-  data: any | null
+  data: AppContent | Partial<AppContent> | TutorialSection | GallerySection | FAQSection | null
 }
 
 // Asset types

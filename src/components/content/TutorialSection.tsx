@@ -186,7 +186,7 @@ export function TutorialSection() {
             setTutorialData(data)
           }
         }
-      } catch (err) {
+      } catch {
         // Silently fail - SEO content is already loaded
         console.info('Using embedded tutorial content for SEO')
       }
