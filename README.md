@@ -2,7 +2,7 @@
 
 Transform your digital photographs into mathematical string art patterns with our sophisticated web application. Using advanced algorithmic processing, convert images into instructions for creating physical string art pieces where thread is wound between pins arranged around a circular hoop.
 
-🌐 **Live Demo:** [https://tomquist.github.io/StringArtGenerat0r](https://tomquist.github.io/StringArtGenerator)
+🌐 **Live Demo:** [https://tomquist.github.io/StringArtGenerator](https://tomquist.github.io/StringArtGenerator)
 
 ## ✨ Features
 
