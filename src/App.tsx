@@ -226,10 +226,13 @@ function App() {
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, canvasSize, canvasSize)
 
-    // Draw lines
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
-    ctx.lineWidth = Math.max(0.5, (result.parameters.lineWeight / 20) * (canvasSize / 1000))
-    // Scale line weight roughly. 20 weight -> 1px at 1000px size seems ok?
+    // Draw lines - matching UI visual style
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'
+    // UI uses 1.0px width on 600px canvas. Here we have 2000px canvas.
+    // So ratio is 2000/600 = 3.33.
+    ctx.lineWidth = 3.33
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
 
     const scale = canvasSize / result.parameters.imgSize
     const pinCoords = result.pinCoordinates
@@ -270,43 +273,47 @@ function App() {
     const radius = frameDiameterMm / 2
 
     // Draw main circle
-    doc.setLineWidth(0.5)
+    doc.setLineWidth(0.2) // Thinner line for precision
     doc.circle(cx, cy, radius, 'S')
 
     // Draw pins
     const pinRadius = 0.5 // 1mm diameter hole marker
-    doc.setFontSize(8)
+    doc.setFontSize(7) // Slightly smaller font
 
-    // We need to map pin coordinates (0..imgSize) to (cx-radius..cx+radius)
-    // The pinCoordinates are relative to imgSize (0..imgSize)
-    // Center of imgSize is imgSize/2
-    const imgCenter = result.parameters.imgSize / 2
-    const scaleToMm = frameDiameterMm / result.parameters.imgSize
+    // Calculate pins strictly on the circle to ensure alignment
+    // The pinCalculation algorithm places pins on a circle inscribed in imgSize
+    // So we can recalculate positions based on angle to ensure perfect circle alignment
+    const numPins = result.parameters.numberOfPins
 
-    result.pinCoordinates.forEach((pin, index) => {
-        const x = cx + (pin[0] - imgCenter) * scaleToMm
-        const y = cy + (pin[1] - imgCenter) * scaleToMm
+    for (let i = 0; i < numPins; i++) {
+        // Angle in radians. Pins are usually distributed starting from 0 or -PI/2?
+        // Let's check pinCalculation.ts. Usually it's i * 2PI / N.
+        // But to be safe and match the generated art, we should trust pinCoordinates
+        // but project them onto the circle if they are slightly off due to rasterization.
+        // Or better: use the angle from the center.
+
+        const pin = result.pinCoordinates[i]
+        const imgCenter = result.parameters.imgSize / 2
+
+        const dx = pin[0] - imgCenter
+        const dy = pin[1] - imgCenter
+        const angle = Math.atan2(dy, dx)
+
+        // Place exactly on radius
+        const x = cx + Math.cos(angle) * radius
+        const y = cy + Math.sin(angle) * radius
 
         // Draw pin dot
         doc.setFillColor(0)
         doc.circle(x, y, pinRadius, 'F')
 
         // Draw pin number
-        // Calculate vector from center to pin to place number outside
-        const dx = x - cx
-        const dy = y - cy
-        const dist = Math.sqrt(dx*dx + dy*dy)
-        const unitX = dx / dist
-        const unitY = dy / dist
-
         const labelDist = 3 // 3mm offset
-        const labelX = x + unitX * labelDist
-        const labelY = y + unitY * labelDist
+        const labelX = cx + Math.cos(angle) * (radius + labelDist)
+        const labelY = cy + Math.sin(angle) * (radius + labelDist)
 
-        // Rotate text to align with radius? Or just place it?
-        // Just place it for now.
-        doc.text(index.toString(), labelX, labelY, { align: 'center', baseline: 'middle' })
-    })
+        doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' })
+    }
 
 
     // --- Page 4+: Pin Sequence ---
@@ -316,32 +323,35 @@ function App() {
     doc.text('Pin Sequence', margin, y)
     y += 10
 
-    doc.setFontSize(10)
-    const colWidth = (pageWidth - (margin * 2)) / 3
-    const cols = 3
+    doc.setFontSize(9) // Smaller font for 4 columns
+    const cols = 4
+    const colWidth = (pageWidth - (margin * 2)) / cols
     const rowsPerColumn = Math.floor((doc.internal.pageSize.getHeight() - y - margin) / 5) // 5mm per row
 
-    let currentLine = 0
+    let currentStep = 0
     const sequence = result.lineSequence
+    const totalSteps = sequence.length - 1
 
-    while (currentLine < sequence.length) {
+    while (currentStep < totalSteps) {
         // Draw columns
         for (let col = 0; col < cols; col++) {
             const xBase = margin + (col * colWidth)
 
             for (let row = 0; row < rowsPerColumn; row++) {
-                if (currentLine >= sequence.length) break
+                if (currentStep >= totalSteps) break
 
-                const pinIndex = sequence[currentLine]
-                const stepNumber = currentLine + 1
+                const fromPin = sequence[currentStep]
+                const toPin = sequence[currentStep + 1]
+                const stepNumber = currentStep + 1
 
-                doc.text(`${stepNumber}. Pin ${pinIndex}`, xBase, y + (row * 5))
+                // Format: 1) 0 -> 116
+                doc.text(`${stepNumber}) ${fromPin} → ${toPin}`, xBase, y + (row * 5))
 
-                currentLine++
+                currentStep++
             }
         }
 
-        if (currentLine < sequence.length) {
+        if (currentStep < totalSteps) {
             doc.addPage()
             y = margin // Reset y for new page
         }
