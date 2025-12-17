@@ -19,11 +19,15 @@ export function getSum(arr: ArrayLike<number>): number {
  * Subtract two arrays element-wise with clamping between 0-255
  * Extracted from subtractArrays function
  */
+type TypedArray = Float32Array | Uint8Array;
+type TypedArrayConstructor = Float32ArrayConstructor | Uint8ArrayConstructor;
+
 export function subtractArraysWithClamping(
-  arr1: Float32Array | Uint8Array,
-  arr2: Float32Array | Uint8Array
-): Float32Array | Uint8Array {
-  const result = new (arr1.constructor as any)(arr1.length);
+  arr1: TypedArray,
+  arr2: TypedArray
+): TypedArray {
+  const Constructor = arr1.constructor as TypedArrayConstructor;
+  const result = new Constructor(arr1.length);
   
   for (let i = 0; i < arr1.length; i++) {
     let value = arr1[i] - arr2[i];

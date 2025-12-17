@@ -344,22 +344,31 @@ export function useMobileCanvas(options: UseMobileCanvasOptions = {}): [
 
   // Comprehensive cleanup to prevent memory leaks
   useEffect(() => {
+    const refs = {
+      animationFrame: animationFrameRef,
+      visualFeedbackTimeout: visualFeedbackTimeoutRef,
+      lastTouches: lastTouchesRef,
+      lastDistance: lastDistanceRef,
+      isPanning: isPanningRef,
+      isZooming: isZoomingRef
+    }
+
     return () => {
       // Cancel any pending animation frames
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+      if (refs.animationFrame.current) {
+        cancelAnimationFrame(refs.animationFrame.current)
       }
       
       // Clear any pending visual feedback timeouts
-      if (visualFeedbackTimeoutRef.current) {
-        clearTimeout(visualFeedbackTimeoutRef.current)
+      if (refs.visualFeedbackTimeout.current) {
+        clearTimeout(refs.visualFeedbackTimeout.current)
       }
       
       // Clear touch references to prevent memory leaks
-      lastTouchesRef.current = []
-      lastDistanceRef.current = 0
-      isPanningRef.current = false
-      isZoomingRef.current = false
+      refs.lastTouches.current = []
+      refs.lastDistance.current = 0
+      refs.isPanning.current = false
+      refs.isZooming.current = false
     }
   }, [])
 

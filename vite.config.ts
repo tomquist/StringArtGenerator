@@ -9,17 +9,17 @@ import { readFileSync } from 'fs'
 function blogDevPlugin() {
   return {
     name: 'blog-dev-plugin',
-    configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: any) => {
+    configureServer(server: import('vite').ViteDevServer) {
+      server.middlewares.use((req, res, next) => {
         // Check if the request is for a blog route
-        if (req.url.startsWith('/blog/')) {
+        if (req.url && req.url.startsWith('/blog/')) {
           const filePath = path.join(__dirname, 'public', req.url, 'index.html')
           try {
             const html = readFileSync(filePath, 'utf-8')
             res.setHeader('Content-Type', 'text/html')
             res.end(html)
             return
-          } catch (err) {
+          } catch {
             // If file doesn't exist, continue to next middleware
           }
         }

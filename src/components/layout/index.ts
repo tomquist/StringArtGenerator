@@ -1,4 +1,5 @@
 export { AppHeader } from "./AppHeader"
 export { SectionContainer, HeroSection, ContentSection, GlassSection } from "./SectionContainer"
-export { NavigationDots, MobileNavigationDots, useSectionNavigation } from "./NavigationDots"
+export { NavigationDots, MobileNavigationDots } from "./NavigationDots"
+export { useSectionNavigation } from "@/hooks/useSectionNavigation"
 export { FloatingActions, ScrollToTopButton, HelpButton } from "./FloatingActions"

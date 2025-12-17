@@ -24,11 +24,7 @@ export class AssetResolver {
   }
 
   // Optimize image path based on screen size and connection
-  static getOptimizedImagePath(path: string, _options?: {
-    width?: number
-    quality?: number
-    format?: 'webp' | 'jpg' | 'png'
-  }): string {
+  static getOptimizedImagePath(path: string): string {
     // In a real app, this would handle image optimization
     // For now, just return the original path
     return path
@@ -37,12 +33,12 @@ export class AssetResolver {
 
 // Content loading utilities
 export class ContentLoader {
-  private static cache = new Map<string, any>()
+  private static cache = new Map<string, unknown>()
 
   // Load and cache content
   static async loadContent<T>(path: string): Promise<T> {
     if (this.cache.has(path)) {
-      return this.cache.get(path)
+      return this.cache.get(path) as T
     }
 
     try {
@@ -117,7 +113,7 @@ export class ContentLoader {
 export class SmartContentLoader {
   private static isSlowConnection(): boolean {
     // Check if user is on a slow connection
-    const connection = (navigator as any).connection
+    const connection = (navigator as unknown as { connection?: { effectiveType: string, saveData: boolean } }).connection
     if (!connection) return false
     
     return connection.effectiveType === '2g' || 

@@ -29,7 +29,7 @@ export type LineCache = {
 export type OptimizationState = {
   error: Float32Array | Uint8Array;
   imgResult: Float32Array | Uint8Array;
-  result: any; // OpenCV Mat object
+  result: unknown; // OpenCV Mat object
   lineMask: Float32Array;
   lineSequence: number[];
   currentPin: number;

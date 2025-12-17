@@ -215,7 +215,7 @@ function App() {
     const previewPageSize = frameDiameter + (margin * 2)
     // jsPDF addPage signature can be flexible, but with format array, orientation is needed
     // However, if we pass custom size array as first arg, second should be orientation 'p' or 'l'
-    doc.addPage([previewPageSize, previewPageSize] as any, previewPageSize > previewPageSize ? 'l' : 'p')
+    doc.addPage([previewPageSize, previewPageSize] as unknown as [number, number], previewPageSize > previewPageSize ? 'l' : 'p')
 
     doc.setFontSize(18)
     doc.text('Preview (1:1 Scale)', margin, margin)
@@ -319,6 +319,7 @@ function App() {
         const labelX = cx + Math.cos(angle) * (radius + labelDist)
         const labelY = cy + Math.sin(angle) * (radius + labelDist)
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' } as any)
     }
 

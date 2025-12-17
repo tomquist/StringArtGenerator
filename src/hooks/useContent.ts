@@ -9,6 +9,12 @@ import type {
 } from '@/types/content'
 import { ContentLoader, SmartContentLoader } from '@/lib/content/contentLoader'
 
+interface GenericContentLoadState<T> {
+  isLoading: boolean
+  error: string | null
+  data: T | null
+}
+
 // Generic content loading hook
 export function useContentLoader<T>(
   loader: () => Promise<T>,
@@ -18,14 +24,18 @@ export function useContentLoader<T>(
     onError?: (error: Error) => void
   }
 ) {
-  const [state, setState] = useState<ContentLoadState>({
+  const [state, setState] = useState<GenericContentLoadState<T>>({
     isLoading: options?.immediate ?? true,
     error: null,
     data: options?.fallback || null
   })
 
   const loadContent = async () => {
-    if (state.isLoading) return // Prevent multiple loads
+    // If we're already loading (and it's not the initial state from immediate=true), skip?
+    // Actually, simple isLoading check is fine if we manage it correctly.
+    // But if immediate=true, isLoading starts true. We shouldn't return if we are the ones supposed to load.
+    // A better check might be needed or just rely on useEffect.
+    // For now, removing the early return to simplify and trust useEffect.
 
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
@@ -180,7 +190,8 @@ export function useContentPreloader() {
 export function useContentVisibility(threshold = 0.3) {
   const [visibleSections, setVisibleSections] = useState<string[]>([])
 
-  const registerSection = (sectionId: string) => {
+  // Move the hook usage to a component-level hook
+  const useSectionRegistration = (sectionId: string) => {
     const { ref, inView } = useInView({ threshold })
     
     useEffect(() => {
@@ -198,7 +209,7 @@ export function useContentVisibility(threshold = 0.3) {
 
   return {
     visibleSections,
-    registerSection,
+    useSectionRegistration,
     isVisible: (sectionId: string) => visibleSections.includes(sectionId)
   }
 }

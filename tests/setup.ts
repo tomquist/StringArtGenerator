@@ -59,7 +59,7 @@ class MockHTMLCanvasElement {
 const originalCreateElement = document.createElement;
 document.createElement = vi.fn((tagName: string) => {
   if (tagName === 'canvas') {
-    return new MockHTMLCanvasElement() as any;
+    return new MockHTMLCanvasElement() as unknown as HTMLCanvasElement;
   }
   return originalCreateElement.call(document, tagName);
 });
@@ -82,4 +82,4 @@ class MockHTMLImageElement {
 }
 
 // Make MockHTMLImageElement available globally for tests
-(globalThis as any).MockHTMLImageElement = MockHTMLImageElement;
+(globalThis as unknown as Record<string, unknown>).MockHTMLImageElement = MockHTMLImageElement;
