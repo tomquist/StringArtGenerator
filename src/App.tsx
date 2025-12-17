@@ -70,6 +70,7 @@ function App() {
   const [numberOfLines, setNumberOfLines] = useState(4000)
   const [lineWeight, setLineWeight] = useState(20)
   const [imgSize, setImgSize] = useState(500)
+  const [frameDiameter, setFrameDiameter] = useState(500) // mm
 
   // Preset configurations
   const presets: PresetConfig[] = [
@@ -160,53 +161,193 @@ function App() {
   }
 
   // Download sequence as PDF
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!result) return
 
     const doc = new jsPDF()
-    const lineHeight = 7
-    let y = 15
-    const margin = 15
+    const margin = 20
+    let y = margin
     const pageWidth = doc.internal.pageSize.getWidth()
-    const contentWidth = pageWidth - (margin * 2)
+
+    // --- Page 1: Report & Statistics ---
 
     // Header
-    doc.setFontSize(18)
-    doc.text('String Art Pin Sequence', margin, y)
-    y += lineHeight * 2
+    doc.setFontSize(24)
+    doc.text('String Art Generator Report', margin, y)
+    y += 15
 
-    // Metadata
+    // Input Parameters
+    doc.setFontSize(16)
+    doc.text('Input Parameters', margin, y)
+    y += 10
     doc.setFontSize(12)
-    doc.text(`Total Pins: ${result.parameters.numberOfPins}`, margin, y)
-    y += lineHeight
-    doc.text(`Total Lines: ${result.lineSequence.length}`, margin, y)
-    y += lineHeight
-    doc.text(`Thread Length: ${result.totalThreadLength.toFixed(2)} inches`, margin, y)
-    y += lineHeight * 2
+    doc.text(`Frame Diameter: ${frameDiameter} mm`, margin, y)
+    y += 7
+    doc.text(`Number of Pins: ${result.parameters.numberOfPins}`, margin, y)
+    y += 7
+    doc.text(`Number of Lines: ${result.parameters.numberOfLines}`, margin, y) // Use actual lines or requested? Result parameters has requested.
+    y += 7
+    doc.text(`Line Weight: ${result.parameters.lineWeight}`, margin, y)
+    y += 7
+    doc.text(`Image Size (Processing): ${result.parameters.imgSize}px`, margin, y)
+    y += 15
 
-    // Sequence Header
-    doc.setFontSize(14)
-    doc.text('Pin Sequence:', margin, y)
-    y += lineHeight
+    // Statistics
+    doc.setFontSize(16)
+    doc.text('Statistics', margin, y)
+    y += 10
+    doc.setFontSize(12)
+    doc.text(`Total Lines Drawn: ${result.lineSequence.length}`, margin, y)
+    y += 7
+    doc.text(`Total Thread Length: ${(result.totalThreadLength / 1000).toFixed(2)} meters`, margin, y)
+    y += 7
+    doc.text(`Processing Time: ${(result.processingTimeMs / 1000).toFixed(2)} seconds`, margin, y)
+    y += 15
 
-    // Sequence Content
+    // Note
     doc.setFontSize(10)
-    const sequenceText = result.lineSequence.join(', ')
-    const splitText = doc.splitTextToSize(sequenceText, contentWidth)
+    doc.setTextColor(100)
+    doc.text('This report includes a high-resolution image, a 1:1 scale stencil/template, and the full pin sequence.', margin, y)
+    doc.setTextColor(0)
 
-    // Add text page by page
-    const pageHeight = doc.internal.pageSize.getHeight()
+    // --- Page 2: High Resolution Image ---
+    doc.addPage()
+    doc.setFontSize(18)
+    doc.text('Preview', margin, margin)
 
-    splitText.forEach((line: string) => {
-      if (y > pageHeight - margin) {
-        doc.addPage()
-        y = margin
-      }
-      doc.text(line, margin, y)
-      y += lineHeight
+    // Create high-res canvas for the image
+    const canvasSize = 2000
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+    const ctx = canvas.getContext('2d')!
+
+    // Fill white background
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+    // Draw lines
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+    ctx.lineWidth = Math.max(0.5, (result.parameters.lineWeight / 20) * (canvasSize / 1000))
+    // Scale line weight roughly. 20 weight -> 1px at 1000px size seems ok?
+
+    const scale = canvasSize / result.parameters.imgSize
+    const pinCoords = result.pinCoordinates
+
+    ctx.beginPath()
+    // Optimization: Draw in batches if needed, but for PDF generation we can just draw all
+    for (let i = 0; i < result.lineSequence.length - 1; i++) {
+        const p1 = pinCoords[result.lineSequence[i]]
+        const p2 = pinCoords[result.lineSequence[i+1]]
+        ctx.moveTo(p1[0] * scale, p1[1] * scale)
+        ctx.lineTo(p2[0] * scale, p2[1] * scale)
+    }
+    ctx.stroke()
+
+    // Add image to PDF
+    const imgData = canvas.toDataURL('image/jpeg', 0.8)
+    const imgSizeOnPdf = Math.min(pageWidth - 2 * margin, doc.internal.pageSize.getHeight() - 40)
+    doc.addImage(imgData, 'JPEG', margin, margin + 10, imgSizeOnPdf, imgSizeOnPdf)
+
+
+    // --- Page 3: Template / Stencil (1:1 Scale) ---
+    // Frame diameter is in mm.
+    // We need a page size that fits the frame + margins.
+    const frameDiameterMm = result.parameters.hoopDiameter
+    const pageMarginMm = 20
+    const templatePageSize = frameDiameterMm + (pageMarginMm * 2)
+
+    doc.addPage([templatePageSize, templatePageSize], templatePageSize > templatePageSize ? 'l' : 'p')
+
+    doc.setFontSize(14)
+    doc.text('Template / Stencil (1:1 Scale)', pageMarginMm, pageMarginMm - 5)
+    doc.setFontSize(10)
+    doc.text(`Diameter: ${frameDiameterMm}mm`, pageMarginMm, pageMarginMm)
+
+    // Center of the page
+    const cx = templatePageSize / 2
+    const cy = templatePageSize / 2
+    const radius = frameDiameterMm / 2
+
+    // Draw main circle
+    doc.setLineWidth(0.5)
+    doc.circle(cx, cy, radius, 'S')
+
+    // Draw pins
+    const pinRadius = 0.5 // 1mm diameter hole marker
+    doc.setFontSize(8)
+
+    // We need to map pin coordinates (0..imgSize) to (cx-radius..cx+radius)
+    // The pinCoordinates are relative to imgSize (0..imgSize)
+    // Center of imgSize is imgSize/2
+    const imgCenter = result.parameters.imgSize / 2
+    const scaleToMm = frameDiameterMm / result.parameters.imgSize
+
+    result.pinCoordinates.forEach((pin, index) => {
+        const x = cx + (pin[0] - imgCenter) * scaleToMm
+        const y = cy + (pin[1] - imgCenter) * scaleToMm
+
+        // Draw pin dot
+        doc.setFillColor(0)
+        doc.circle(x, y, pinRadius, 'F')
+
+        // Draw pin number
+        // Calculate vector from center to pin to place number outside
+        const dx = x - cx
+        const dy = y - cy
+        const dist = Math.sqrt(dx*dx + dy*dy)
+        const unitX = dx / dist
+        const unitY = dy / dist
+
+        const labelDist = 3 // 3mm offset
+        const labelX = x + unitX * labelDist
+        const labelY = y + unitY * labelDist
+
+        // Rotate text to align with radius? Or just place it?
+        // Just place it for now.
+        doc.text(index.toString(), labelX, labelY, { align: 'center', baseline: 'middle' })
     })
 
-    doc.save(`string-art-sequence-${Date.now()}.pdf`)
+
+    // --- Page 4+: Pin Sequence ---
+    doc.addPage('a4', 'p')
+    y = margin
+    doc.setFontSize(18)
+    doc.text('Pin Sequence', margin, y)
+    y += 10
+
+    doc.setFontSize(10)
+    const colWidth = (pageWidth - (margin * 2)) / 3
+    const cols = 3
+    const rowsPerColumn = Math.floor((doc.internal.pageSize.getHeight() - y - margin) / 5) // 5mm per row
+
+    let currentLine = 0
+    const sequence = result.lineSequence
+
+    while (currentLine < sequence.length) {
+        // Draw columns
+        for (let col = 0; col < cols; col++) {
+            const xBase = margin + (col * colWidth)
+
+            for (let row = 0; row < rowsPerColumn; row++) {
+                if (currentLine >= sequence.length) break
+
+                const pinIndex = sequence[currentLine]
+                const stepNumber = currentLine + 1
+
+                doc.text(`${stepNumber}. Pin ${pinIndex}`, xBase, y + (row * 5))
+
+                currentLine++
+            }
+        }
+
+        if (currentLine < sequence.length) {
+            doc.addPage()
+            y = margin // Reset y for new page
+        }
+    }
+
+    doc.save(`string-art-plan-${frameDiameter}mm-${Date.now()}.pdf`)
   }
 
   // Download sequence as TXT
@@ -398,6 +539,7 @@ ${result.lineSequence.join(', ')}`
               lineWeight,
               minDistance: Math.max(2, Math.floor(numberOfPins / 36)),
               imgSize,
+              hoopDiameter: frameDiameter,
             },
             (progressUpdate, currentLineSequence, pinCoordinates) => {
               setProgress(progressUpdate)
@@ -764,6 +906,21 @@ ${result.lineSequence.join(', ')}`
                             <div className="text-body-sm text-subtle mt-2 leading-relaxed">
                               Higher resolution improves quality but takes longer.
                             </div>
+
+                            <MobileSlider
+                              label="Frame Diameter"
+                              min={200}
+                              max={1000}
+                              step={10}
+                              value={frameDiameter}
+                              onValueChange={setFrameDiameter}
+                              disabled={isProcessing}
+                              formatValue={(val) => `${val}mm`}
+                              className="w-full"
+                            />
+                            <div className="text-body-sm text-subtle mt-2 leading-relaxed">
+                              Physical size of the frame. Used for thread length calculation and template generation.
+                            </div>
                           </div>
                           
                           <div className="bg-muted/50 rounded-lg p-6">
@@ -904,7 +1061,7 @@ ${result.lineSequence.join(', ')}`
                             </div>
                             <div className="space-y-1">
                               <div className="text-caption text-emphasis">THREAD LENGTH</div>
-                              <div className="font-medium">{progress.threadLength.toFixed(2)}″</div>
+                              <div className="font-medium">{(progress.threadLength / 1000).toFixed(2)}m</div>
                             </div>
                           </div>
                         </div>
@@ -926,7 +1083,7 @@ ${result.lineSequence.join(', ')}`
                         </div>
                         <div className="space-y-1">
                           <div className="text-caption text-emphasis">THREAD LENGTH</div>
-                          <div className="text-body-sm font-medium">{result.totalThreadLength.toFixed(2)}″</div>
+                          <div className="text-body-sm font-medium">{(result.totalThreadLength / 1000).toFixed(2)}m</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-caption text-emphasis">ANCHOR PINS</div>
