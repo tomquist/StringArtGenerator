@@ -21,7 +21,7 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
           >
             <div className="h-9 w-9 flex items-center justify-center">
               <img 
-                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                src={`${import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`}favicon.svg`}
                 alt="String Art Generator Logo"
                 className="h-8 w-8"
               />
@@ -56,18 +56,6 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
             >
               FAQ
             </button>
-            <a
-              href={`${import.meta.env.BASE_URL}contact.html`}
-              className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
-            >
-              Contact
-            </a>
-            <a
-              href={`${import.meta.env.BASE_URL}blog/`}
-              className="touch-target nav-mobile text-body-sm font-medium transition-all duration-200 hover:text-brand text-subtle hover:scale-105 px-3 py-2 rounded-lg hover:bg-accent/50"
-            >
-              Blog
-            </a>
           </nav>
         </div>
 
@@ -126,24 +114,6 @@ export function AppHeader({ onNavigate, onToggleMobileMenu, isMobileMenuOpen, cl
                 <span>FAQ</span>
               </div>
             </button>
-            <a
-              href={`${import.meta.env.BASE_URL}contact.html`}
-              className="block w-full text-left touch-target-lg touch-feedback text-body-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground rounded-lg px-4 py-3 focus-mobile"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">📧</span>
-                <span>Contact</span>
-              </div>
-            </a>
-            <a
-              href={`${import.meta.env.BASE_URL}blog/`}
-              className="block w-full text-left touch-target-lg touch-feedback text-body-sm font-medium transition-all duration-200 hover:bg-accent hover:text-accent-foreground rounded-lg px-4 py-3 focus-mobile"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">📝</span>
-                <span>Blog</span>
-              </div>
-            </a>
           </nav>
         </div>
       )}
