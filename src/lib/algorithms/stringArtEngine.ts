@@ -86,7 +86,7 @@ export async function generateStringArt(
   // If we changed to rectangle, we need to check `lineOptimization.ts`.
   // I will check `lineOptimization.ts` after this block update.
 
-  const errorMatrix = createErrorMatrix(imageArray, parameters.imgSize);
+  const errorMatrix = createErrorMatrix(imageArray);
 
   // Step 5: Optimize string art
   console.log('Optimizing string art...');
