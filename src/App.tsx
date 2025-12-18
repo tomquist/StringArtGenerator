@@ -168,6 +168,8 @@ function App() {
     const margin = 20
     let y = margin
     const pageWidth = doc.internal.pageSize.getWidth()
+    const a4Width = 210
+    const a4Height = 297
 
     // --- Page 1: Report & Statistics ---
 
@@ -185,7 +187,7 @@ function App() {
     y += 7
     doc.text(`Number of Pins: ${result.parameters.numberOfPins}`, margin, y)
     y += 7
-    doc.text(`Number of Lines: ${result.parameters.numberOfLines}`, margin, y) // Use actual lines or requested? Result parameters has requested.
+    doc.text(`Number of Lines: ${result.parameters.numberOfLines}`, margin, y)
     y += 7
     doc.text(`Line Weight: ${result.parameters.lineWeight}`, margin, y)
     y += 7
@@ -207,22 +209,14 @@ function App() {
     // Note
     doc.setFontSize(10)
     doc.setTextColor(100)
-    doc.text('This report includes a high-resolution image, a 1:1 scale stencil/template, and the full pin sequence.', margin, y)
+    doc.text('This report includes a high-resolution image, a 1:1 scale stencil/template (full & tiled), and the full pin sequence.', margin, y)
     doc.setTextColor(0)
 
-    // --- Page 2: High Resolution Image (1:1 Scale) ---
-    // User requested "full 1:1 size according to the entered frame diameter"
-    const previewPageSize = frameDiameter + (margin * 2)
-    // jsPDF addPage signature can be flexible, but with format array, orientation is needed
-    // However, if we pass custom size array as first arg, second should be orientation 'p' or 'l'
-    doc.addPage([previewPageSize, previewPageSize] as unknown as [number, number], previewPageSize > previewPageSize ? 'l' : 'p')
+    // --- Shared Setup for 1:1 Pages ---
+    const frameDiameterMm = result.parameters.hoopDiameter
+    const fullPageSize = frameDiameterMm + (margin * 2)
 
-    doc.setFontSize(18)
-    doc.text('Preview (1:1 Scale)', margin, margin)
-
-    // Create high-res canvas for the image
-    // We want high resolution, so we shouldn't just rely on screen pixels.
-    // But canvas has limits. 4000px is safe.
+    // 1. Generate High-Res Image Data (Once)
     const canvasSize = 4000
     const canvas = document.createElement('canvas')
     canvas.width = canvasSize
@@ -234,17 +228,14 @@ function App() {
     ctx.fillRect(0, 0, canvasSize, canvasSize)
 
     // Draw lines
-    // Adjusted for high resolution: thinner lines and lower opacity
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
-    ctx.lineWidth = 1.0 // Keep it fine
+    ctx.lineWidth = 1.0
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
     const scale = canvasSize / result.parameters.imgSize
     const pinCoords = result.pinCoordinates
 
-    // Draw lines individually to ensure alpha blending works correctly
-    // This creates the density gradient effect characteristic of string art
     for (let i = 0; i < result.lineSequence.length - 1; i++) {
         ctx.beginPath()
         const p1 = pinCoords[result.lineSequence[i]]
@@ -253,97 +244,124 @@ function App() {
         ctx.lineTo(p2[0] * scale, p2[1] * scale)
         ctx.stroke()
     }
+    const previewImgData = canvas.toDataURL('image/jpeg', 0.8)
 
-    // Add image to PDF at 1:1 size
-    const imgData = canvas.toDataURL('image/jpeg', 0.8)
-    // The image should be frameDiameter in size
-    doc.addImage(imgData, 'JPEG', margin, margin + 10, frameDiameter, frameDiameter)
+    // 2. Helper Functions for Drawing Content
+    const drawPreviewContent = (offsetX: number, offsetY: number) => {
+        doc.setFontSize(18)
+        doc.text('Preview (1:1 Scale)', margin + offsetX, margin + offsetY)
 
+        // Image at 1:1 size
+        doc.addImage(previewImgData, 'JPEG', margin + offsetX, margin + 10 + offsetY, frameDiameterMm, frameDiameterMm)
+    }
 
-    // --- Page 3: Template / Stencil (1:1 Scale) ---
-    // Frame diameter is in mm.
-    // We need a page size that fits the frame + margins.
-    const frameDiameterMm = result.parameters.hoopDiameter
-    const pageMarginMm = 20
-    const templatePageSize = frameDiameterMm + (pageMarginMm * 2)
+    const drawTemplateContent = (offsetX: number, offsetY: number) => {
+        doc.setFontSize(14)
+        doc.text('Template / Stencil (1:1 Scale)', margin + offsetX, margin - 5 + offsetY)
+        doc.setFontSize(10)
+        doc.text(`Diameter: ${frameDiameterMm}mm`, margin + offsetX, margin + offsetY)
 
-    doc.addPage([templatePageSize, templatePageSize], templatePageSize > templatePageSize ? 'l' : 'p')
+        const cx = (fullPageSize / 2) + offsetX
+        const cy = (fullPageSize / 2) + offsetY
+        const radius = frameDiameterMm / 2
 
-    doc.setFontSize(14)
-    doc.text('Template / Stencil (1:1 Scale)', pageMarginMm, pageMarginMm - 5)
-    doc.setFontSize(10)
-    doc.text(`Diameter: ${frameDiameterMm}mm`, pageMarginMm, pageMarginMm)
+        // Main circle
+        doc.setLineWidth(0.2)
+        doc.circle(cx, cy, radius, 'S')
 
-    // Center of the page
-    const cx = templatePageSize / 2
-    const cy = templatePageSize / 2
-    const radius = frameDiameterMm / 2
-
-    // Draw main circle
-    doc.setLineWidth(0.2) // Thinner line for precision
-    doc.circle(cx, cy, radius, 'S')
-
-    // Draw Center Dot
-    const centerDotRadius = 2
-    doc.setFillColor(0, 0, 0)
-    doc.circle(cx, cy, centerDotRadius, 'F')
-
-    // Draw 4 Dotted Lines
-    doc.setLineWidth(0.1) // Fine line
-    doc.setLineDashPattern([2, 2], 0) // Dotted pattern: 2mm dash, 2mm gap
-
-    // 1. Horizontal
-    doc.line(cx - radius, cy, cx + radius, cy)
-    // 2. Vertical
-    doc.line(cx, cy - radius, cx, cy + radius)
-    // 3. Diagonal 1 (45 deg)
-    const r45 = radius
-    const d1x = r45 * Math.cos(Math.PI / 4)
-    const d1y = r45 * Math.sin(Math.PI / 4)
-    doc.line(cx - d1x, cy - d1y, cx + d1x, cy + d1y)
-    // 4. Diagonal 2 (-45 deg)
-    doc.line(cx - d1x, cy + d1y, cx + d1x, cy - d1y)
-
-    doc.setLineDashPattern([], 0) // Reset to solid
-
-    // Draw pins
-    const pinRadius = 0.5 // 1mm diameter hole marker
-    doc.setFontSize(7) // Slightly smaller font
-
-    // Calculate pins strictly on the circle to ensure alignment
-    // The pinCalculation algorithm places pins on a circle inscribed in imgSize
-    // So we can recalculate positions based on angle to ensure perfect circle alignment
-    const numPins = result.parameters.numberOfPins
-
-    for (let i = 0; i < numPins; i++) {
-        // Angle in radians. Pins are usually distributed starting from 0 or -PI/2?
-        // Let's check pinCalculation.ts. Usually it's i * 2PI / N.
-        // But to be safe and match the generated art, we should trust pinCoordinates
-        // but project them onto the circle if they are slightly off due to rasterization.
-        // Or better: use the angle from the center.
-
-        const pin = result.pinCoordinates[i]
-        const imgCenter = result.parameters.imgSize / 2
-
-        const dx = pin[0] - imgCenter
-        const dy = pin[1] - imgCenter
-        const angle = Math.atan2(dy, dx)
-
-        // Place exactly on radius
-        const x = cx + Math.cos(angle) * radius
-        const y = cy + Math.sin(angle) * radius
-
-        // Draw pin dot
+        // Center Dot
         doc.setFillColor(0, 0, 0)
-        doc.circle(x, y, pinRadius, 'F')
+        doc.circle(cx, cy, 2, 'F')
 
-        // Draw pin number
-        const labelDist = 3 // 3mm offset
-        const labelX = cx + Math.cos(angle) * (radius + labelDist)
-        const labelY = cy + Math.sin(angle) * (radius + labelDist)
+        // Dotted Lines
+        doc.setLineWidth(0.1)
+        doc.setLineDashPattern([2, 2], 0)
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' } as any)
+        doc.line(cx - radius, cy, cx + radius, cy) // Horizontal
+        doc.line(cx, cy - radius, cx, cy + radius) // Vertical
+
+        const r45 = radius
+        const d1x = r45 * Math.cos(Math.PI / 4)
+        const d1y = r45 * Math.sin(Math.PI / 4)
+        doc.line(cx - d1x, cy - d1y, cx + d1x, cy + d1y) // Diag 1
+        doc.line(cx - d1x, cy + d1y, cx + d1x, cy - d1y) // Diag 2
+
+        doc.setLineDashPattern([], 0)
+
+        // Pins
+        const pinRadius = 0.5
+        doc.setFontSize(7)
+        const numPins = result.parameters.numberOfPins
+
+        for (let i = 0; i < numPins; i++) {
+            const pin = result.pinCoordinates[i]
+            const imgCenter = result.parameters.imgSize / 2
+
+            const dx = pin[0] - imgCenter
+            const dy = pin[1] - imgCenter
+            const angle = Math.atan2(dy, dx)
+
+            const x = cx + Math.cos(angle) * radius
+            const y = cy + Math.sin(angle) * radius
+
+            doc.setFillColor(0, 0, 0)
+            doc.circle(x, y, pinRadius, 'F')
+
+            const labelDist = 3
+            const labelX = cx + Math.cos(angle) * (radius + labelDist)
+            const labelY = cy + Math.sin(angle) * (radius + labelDist)
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' } as any)
+        }
+    }
+
+
+    // --- Page 2: High Resolution Image (1:1 Scale - Full) ---
+    doc.addPage([fullPageSize, fullPageSize] as unknown as [number, number], fullPageSize > fullPageSize ? 'l' : 'p')
+    drawPreviewContent(0, 0)
+
+    // --- Page 2b: Tiled Preview (if larger than A4) ---
+    // Use A4 Portrait (210x297) for tiles
+    if (fullPageSize > 200) { // Slight tolerance, essentially if it doesn't fit comfortably on one page width
+        const cols = Math.ceil(fullPageSize / a4Width)
+        const rows = Math.ceil(fullPageSize / a4Height)
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                doc.addPage('a4', 'p')
+                // Helper text
+                doc.setFontSize(8)
+                doc.setTextColor(150)
+                doc.text(`Preview Tile: Row ${r+1}/${rows}, Col ${c+1}/${cols}`, 5, 5)
+                doc.setTextColor(0)
+
+                // Draw shifted content
+                drawPreviewContent(-c * a4Width, -r * a4Height)
+            }
+        }
+    }
+
+    // --- Page 3: Template / Stencil (1:1 Scale - Full) ---
+    doc.addPage([fullPageSize, fullPageSize] as unknown as [number, number], fullPageSize > fullPageSize ? 'l' : 'p')
+    drawTemplateContent(0, 0)
+
+    // --- Page 3b: Tiled Template (if larger than A4) ---
+    if (fullPageSize > 200) {
+        const cols = Math.ceil(fullPageSize / a4Width)
+        const rows = Math.ceil(fullPageSize / a4Height)
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                doc.addPage('a4', 'p')
+                doc.setFontSize(8)
+                doc.setTextColor(150)
+                doc.text(`Template Tile: Row ${r+1}/${rows}, Col ${c+1}/${cols}`, 5, 5)
+                doc.setTextColor(0)
+
+                drawTemplateContent(-c * a4Width, -r * a4Height)
+            }
+        }
     }
 
 
