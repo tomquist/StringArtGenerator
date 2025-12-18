@@ -24,11 +24,26 @@ export async function generateStringArt(
     numberOfPins: params.numberOfPins ?? DEFAULT_CONFIG.N_PINS,
     numberOfLines: params.numberOfLines ?? DEFAULT_CONFIG.MAX_LINES,
     lineWeight: params.lineWeight ?? DEFAULT_CONFIG.LINE_WEIGHT,
+    threadThickness: params.threadThickness ?? DEFAULT_CONFIG.THREAD_THICKNESS,
     minDistance: params.minDistance ?? DEFAULT_CONFIG.MIN_DISTANCE,
     imgSize: params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE,
     scale: params.scale ?? DEFAULT_CONFIG.SCALE,
     hoopDiameter: params.hoopDiameter ?? DEFAULT_CONFIG.HOOP_DIAMETER,
   };
+
+  // Calculate lineWeight based on thread thickness if threadThickness is provided
+  // lineWeight = (threadThickness * imgSize / hoopDiameter) * 255
+  if (parameters.threadThickness) {
+    // mm per pixel = hoopDiameter / imgSize
+    // opacity = (threadThickness / mm_per_pixel) * 255
+    const pixelSizeMM = parameters.hoopDiameter / parameters.imgSize;
+    const opacity = (parameters.threadThickness / pixelSizeMM) * 255;
+
+    // Clamp between 1 and 255
+    parameters.lineWeight = Math.max(1, Math.min(255, Math.round(opacity)));
+
+    console.log(`Calculated lineWeight from thread thickness: ${parameters.threadThickness}mm -> ${parameters.lineWeight} opacity`);
+  }
 
   // Step 1: Process the image
   console.log('Processing image...');
@@ -95,7 +110,12 @@ export function validateStringArtParameters(params: Partial<StringArtParameters>
 
   if (params.lineWeight !== undefined) {
     if (params.lineWeight < 1) errors.push('Line weight must be at least 1');
-    if (params.lineWeight > 100) errors.push('Line weight should not exceed 100');
+    if (params.lineWeight > 255) errors.push('Line weight should not exceed 255');
+  }
+
+  if (params.threadThickness !== undefined) {
+    if (params.threadThickness < 0.01) errors.push('Thread thickness must be at least 0.01mm');
+    if (params.threadThickness > 5.0) errors.push('Thread thickness should not exceed 5.0mm');
   }
 
   if (params.minDistance !== undefined) {
@@ -123,6 +143,7 @@ export function createDefaultParameters(overrides: Partial<StringArtParameters> 
     numberOfPins: DEFAULT_CONFIG.N_PINS,
     numberOfLines: DEFAULT_CONFIG.MAX_LINES,
     lineWeight: DEFAULT_CONFIG.LINE_WEIGHT,
+    threadThickness: DEFAULT_CONFIG.THREAD_THICKNESS,
     minDistance: DEFAULT_CONFIG.MIN_DISTANCE,
     imgSize: DEFAULT_CONFIG.IMG_SIZE,
     scale: DEFAULT_CONFIG.SCALE,

@@ -13,6 +13,7 @@ export type StringArtParameters = {
   numberOfPins: number;
   numberOfLines: number;
   lineWeight: number;
+  threadThickness: number; // in mm
   minDistance: number;
   imgSize: number;
   scale: number;

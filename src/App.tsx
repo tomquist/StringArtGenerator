@@ -33,7 +33,7 @@ interface PresetConfig {
   config: {
     numberOfPins: number
     numberOfLines: number
-    lineWeight: number
+    threadThickness: number
     imgSize: number
   }
 }
@@ -68,7 +68,7 @@ function App() {
   // Parameters (will be set by presets or advanced settings)
   const [numberOfPins, setNumberOfPins] = useState(288)
   const [numberOfLines, setNumberOfLines] = useState(4000)
-  const [lineWeight, setLineWeight] = useState(20)
+  const [threadThickness, setThreadThickness] = useState(0.15) // mm
   const [imgSize, setImgSize] = useState(500)
   const [frameDiameter, setFrameDiameter] = useState(500) // mm
 
@@ -79,28 +79,28 @@ function App() {
       name: 'Fine Detail',
       description: 'High precision with fine lines for detailed images',
       icon: '✨',
-      config: { numberOfPins: 360, numberOfLines: 4000, lineWeight: 15, imgSize: 500 }
+      config: { numberOfPins: 360, numberOfLines: 4000, threadThickness: 0.1, imgSize: 500 }
     },
     {
       id: 'bold',
       name: 'Bold Impact',
       description: 'Strong lines and high contrast for dramatic effect',
       icon: '🔥',
-      config: { numberOfPins: 216, numberOfLines: 3000, lineWeight: 35, imgSize: 500 }
+      config: { numberOfPins: 216, numberOfLines: 3000, threadThickness: 0.4, imgSize: 500 }
     },
     {
       id: 'soft',
       name: 'Soft Portrait',
       description: 'Gentle lines perfect for portraits and organic shapes',
       icon: '🌸',
-      config: { numberOfPins: 288, numberOfLines: 2500, lineWeight: 25, imgSize: 500 }
+      config: { numberOfPins: 288, numberOfLines: 2500, threadThickness: 0.2, imgSize: 500 }
     },
     {
       id: 'pro',
       name: 'Professional',
       description: 'Balanced settings optimized for exhibition quality',
       icon: '👑',
-      config: { numberOfPins: 324, numberOfLines: 3500, lineWeight: 20, imgSize: 500 }
+      config: { numberOfPins: 324, numberOfLines: 3500, threadThickness: 0.15, imgSize: 500 }
     }
   ]
 
@@ -119,7 +119,7 @@ function App() {
       setSelectedPreset(presetId)
       setNumberOfPins(preset.config.numberOfPins)
       setNumberOfLines(preset.config.numberOfLines)
-      setLineWeight(preset.config.lineWeight)
+      setThreadThickness(preset.config.threadThickness)
       setImgSize(preset.config.imgSize)
     }
   }
@@ -189,7 +189,7 @@ function App() {
     y += 7
     doc.text(`Number of Lines: ${result.parameters.numberOfLines}`, margin, y)
     y += 7
-    doc.text(`Line Weight: ${result.parameters.lineWeight}`, margin, y)
+    doc.text(`Thread Thickness: ${result.parameters.threadThickness} mm`, margin, y)
     y += 7
     doc.text(`Image Size (Processing): ${result.parameters.imgSize}px`, margin, y)
     y += 15
@@ -729,7 +729,7 @@ ${result.lineSequence.join(', ')}`
             {
               numberOfPins,
               numberOfLines,
-              lineWeight,
+              threadThickness,
               minDistance: Math.max(2, Math.floor(numberOfPins / 36)),
               imgSize,
               hoopDiameter: frameDiameter,
@@ -1071,18 +1071,18 @@ ${result.lineSequence.join(', ')}`
                             </div>
                             
                             <MobileSlider
-                              label="Line Weight"
-                              min={5}
-                              max={50}
-                              step={5}
-                              value={lineWeight}
-                              onValueChange={setLineWeight}
+                              label="Thread Thickness"
+                              min={0.05}
+                              max={1.0}
+                              step={0.05}
+                              value={threadThickness}
+                              onValueChange={setThreadThickness}
                               disabled={isProcessing}
-                              formatValue={(val) => `${val}px`}
+                              formatValue={(val) => `${val}mm`}
                               className="w-full"
                             />
                             <div className="text-body-sm text-subtle mt-2 leading-relaxed">
-                              Controls the visual thickness of string lines.
+                              Real-world thickness of the thread you will use.
                             </div>
                             
                             <MobileSlider

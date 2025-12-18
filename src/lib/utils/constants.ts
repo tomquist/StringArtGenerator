@@ -12,11 +12,12 @@ export const DEFAULT_CONFIG = {
   N_PINS: 288, // 36 * 8
   MAX_LINES: 4000,
   LINE_WEIGHT: 20,
+  THREAD_THICKNESS: 0.15, // mm
   MIN_DISTANCE: 20,
   MIN_LOOP: 20,
   
   // Physical measurements
-  HOOP_DIAMETER: 0.625, // inches
+  HOOP_DIAMETER: 500, // mm
   
   // Algorithm parameters
   OPTIMIZATION_BATCH_SIZE: 10, // How often to redraw during optimization
