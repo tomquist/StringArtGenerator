@@ -1073,7 +1073,6 @@ ${result.lineSequence.join(', ')}`
                               More lines create darker, richer results.
                             </div>
                             
-                            {/* Yarn Parameters Replacement */}
                             <YarnParameters
                               onChange={(spec, weight) => {
                                 setYarnSpec(spec);
@@ -1084,14 +1083,6 @@ ${result.lineSequence.join(', ')}`
                               initialSpec={yarnSpec}
                               disabled={isProcessing}
                             />
-
-                            {/* Legacy Line Weight Slider (Hidden if yarnSpec is active, or we could keep it as a readonly display/override?
-                                The prompt says "Replace the user-facing 'lineWeight (px)' input".
-                                So we will remove the slider or make it conditional.
-                                Let's remove the slider as the YarnParameters component handles lineWeight calculation.
-                                But maybe keep it for backward compat/debug if needed?
-                                The user said "Replace", so I'll replace it.
-                            */}
                             
                             <MobileSlider
                               label="Canvas Size"
