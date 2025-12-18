@@ -125,6 +125,27 @@
         border-radius: 2px;
         animation: progress 2s ease-in-out infinite;
       }
+
+      /* Error state styles */
+      #loading-overlay.error .progress-bar {
+        background: rgba(239, 68, 68, 0.1);
+      }
+      #loading-overlay.error .progress-fill {
+        background: rgb(239, 68, 68);
+        animation: none;
+        width: 100%;
+      }
+      .error-message {
+        display: none;
+        color: rgb(239, 68, 68);
+        margin-top: 1rem;
+        font-family: system-ui, sans-serif;
+        max-width: 300px;
+        word-wrap: break-word;
+      }
+      #loading-overlay.error .error-message {
+        display: block;
+      }
       
       @keyframes spin {
         to { transform: rotate(360deg); }
@@ -154,9 +175,31 @@
 <meta name="twitter:description" content="Transform photos into stunning string art using advanced algorithms. Generate mathematical patterns with customizable pins and lines for physical artwork.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-<link rel="dns-prefetch" href="https://stringartgenerator.co">
+<link rel="dns-prefetch" href="/">
 <style></style></head>
   <body>
+    <!-- Global Error Handler -->
+    <script>
+      window.addEventListener('error', function(event) {
+        console.error('Global Error caught:', event.error);
+        const overlay = document.getElementById('loading-overlay');
+        const errorMsg = document.getElementById('global-error-message');
+        if (overlay && errorMsg) {
+          overlay.classList.add('error');
+          errorMsg.textContent = 'Something went wrong: ' + (event.message || 'Unknown error');
+        }
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled Rejection:', event.reason);
+        const overlay = document.getElementById('loading-overlay');
+        const errorMsg = document.getElementById('global-error-message');
+        if (overlay && errorMsg) {
+          overlay.classList.add('error');
+          errorMsg.textContent = 'Failed to load: ' + (event.reason ? event.reason.toString() : 'Unknown error');
+        }
+      });
+    </script>
+
     <!-- Loading overlay - removed by React -->
     <div id="loading-overlay">
       <div class="loading-content">
@@ -191,6 +234,7 @@
         <div class="progress-bar">
           <div class="progress-fill"></div>
         </div>
+        <div id="global-error-message" class="error-message"></div>
       </div>
     </div>
     
@@ -199,10 +243,10 @@
         <header>
           <nav aria-label="Main navigation">
             <ul>
-              <li><a href="/#generator">Generator</a></li>
-              <li><a href="/#gallery">Gallery</a></li>
-              <li><a href="/#tutorial">Tutorial</a></li>
-              <li><a href="/#faq">FAQ</a></li>
+              <li><a href="#generator">Generator</a></li>
+              <li><a href="#gallery">Gallery</a></li>
+              <li><a href="#tutorial">Tutorial</a></li>
+              <li><a href="#faq">FAQ</a></li>
             </ul>
           </nav>
         </header>
