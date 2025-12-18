@@ -54,15 +54,16 @@ export async function prerender(data: { url: string }) {
   
   // Generate route-specific HTML content
   const generateHTML = () => {
+    // Use relative hash links to work in subdirectories
     const baseHTML = `
       <div itemscope itemtype="https://schema.org/WebApplication">
         <header>
           <nav aria-label="Main navigation">
             <ul>
-              <li><a href="/#generator">Generator</a></li>
-              <li><a href="/#gallery">Gallery</a></li>
-              <li><a href="/#tutorial">Tutorial</a></li>
-              <li><a href="/#faq">FAQ</a></li>
+              <li><a href="#generator">Generator</a></li>
+              <li><a href="#gallery">Gallery</a></li>
+              <li><a href="#tutorial">Tutorial</a></li>
+              <li><a href="#faq">FAQ</a></li>
             </ul>
           </nav>
         </header>
@@ -125,6 +126,7 @@ export async function prerender(data: { url: string }) {
   }
   
   // Route-specific configurations
+  // Note: These keys are just for lookup logic, they don't dictate output paths.
   const routeConfig = {
     '/': {
       title: 'String Art Generator - Transform Photos to String Art',
@@ -175,7 +177,8 @@ export async function prerender(data: { url: string }) {
         // Performance Resource Hints
         { type: 'link', props: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
         { type: 'link', props: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'anonymous' } },
-        { type: 'link', props: { rel: 'dns-prefetch', href: 'https://stringartgenerator.co' } },
+        // Use relative path for dns-prefetch to avoid hardcoding domain
+        { type: 'link', props: { rel: 'dns-prefetch', href: '/' } },
         
         // Critical CSS (inline for above-the-fold content)
         { 
