@@ -10,7 +10,7 @@ import {
 } from '../ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import type { YarnSpec, YarnType, YarnMaterial } from '../../types/yarn';
-import { normalizeToTex, calculateDiameterMM, calculateLineWeight } from '../../lib/algorithms/yarnConversion';
+import { normalizeToTex, calculateDiameterMM, calculateThreadThicknessMM, calculateLineWeight } from '../../lib/algorithms/yarnConversion';
 
 type YarnParametersProps = {
   onChange: (spec: YarnSpec, calculatedLineWeight: number) => void;
@@ -38,7 +38,8 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
   // Derived values for preview
   const tex = normalizeToTex(spec);
   const diameterMM = calculateDiameterMM(spec);
-  const lineWeight = calculateLineWeight(diameterMM * (spec.k || 1.10), hoopDiameterMM, imgSizePx);
+  const threadThicknessMM = calculateThreadThicknessMM(spec);
+  const lineWeight = calculateLineWeight(threadThicknessMM, hoopDiameterMM, imgSizePx);
 
   // Keep reference to latest onChange to avoid effect loop
   const onChangeRef = React.useRef(onChange);
