@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { jsPDF } from 'jspdf'
 import { generateStringArt } from './lib/algorithms/stringArtEngine'
-import type { StringArtResult, OptimizationProgress } from './types'
+import type { StringArtResult, OptimizationProgress, StringArtShape } from './types'
 import { useMobileCanvas } from './hooks/useMobileCanvas'
 import { MobileSlider } from './components/ui/mobile-slider'
 import { YarnParameters } from './components/forms/yarn-parameters'
@@ -73,6 +73,10 @@ function App() {
   const [lineWeight, setLineWeight] = useState(20)
   const [imgSize, setImgSize] = useState(500)
   const [frameDiameter, setFrameDiameter] = useState(500) // mm
+  // New shape parameters
+  const [shape, setShape] = useState<StringArtShape>('circle')
+  const [width, setWidth] = useState(500) // mm
+  const [height, setHeight] = useState(500) // mm
   const [yarnSpec, setYarnSpec] = useState<YarnSpec | undefined>(undefined)
 
   // Preset configurations
@@ -216,19 +220,43 @@ function App() {
     doc.setTextColor(0)
 
     // --- Shared Setup for 1:1 Pages ---
-    const frameDiameterMm = result.parameters.hoopDiameter
-    const fullPageSize = frameDiameterMm + (margin * 2)
+    // Handle Dimensions
+    let pageW: number, pageH: number;
+    let frameDesc = '';
+
+    if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
+        pageW = result.parameters.width + (margin * 2);
+        pageH = result.parameters.height + (margin * 2);
+        frameDesc = `${result.parameters.width}x${result.parameters.height}mm`;
+    } else {
+        const d = result.parameters.hoopDiameter;
+        pageW = d + (margin * 2);
+        pageH = d + (margin * 2);
+        frameDesc = `${d}mm Diameter`;
+    }
 
     // 1. Generate High-Res Image Data (Once)
-    const canvasSize = 4000
+    // We need to respect aspect ratio for the high-res image
+    let canvasW = 4000;
+    let canvasH = 4000;
+
+    if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
+        const aspect = result.parameters.width / result.parameters.height;
+        if (aspect >= 1) {
+            canvasH = Math.round(canvasW / aspect);
+        } else {
+            canvasW = Math.round(canvasH * aspect);
+        }
+    }
+
     const canvas = document.createElement('canvas')
-    canvas.width = canvasSize
-    canvas.height = canvasSize
+    canvas.width = canvasW
+    canvas.height = canvasH
     const ctx = canvas.getContext('2d')!
 
     // Fill white background
     ctx.fillStyle = 'white'
-    ctx.fillRect(0, 0, canvasSize, canvasSize)
+    ctx.fillRect(0, 0, canvasW, canvasH)
 
     // Draw lines
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
@@ -236,13 +264,19 @@ function App() {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
-    const scale = canvasSize / result.parameters.imgSize
+    // Scale logic: imgSize is the max dimension in pixel space.
+    // canvasW/H max dimension should map to imgSize.
+    const maxCanvasDim = Math.max(canvasW, canvasH);
+    const scale = maxCanvasDim / result.parameters.imgSize
     const pinCoords = result.pinCoordinates
 
     for (let i = 0; i < result.lineSequence.length - 1; i++) {
         ctx.beginPath()
         const p1 = pinCoords[result.lineSequence[i]]
         const p2 = pinCoords[result.lineSequence[i+1]]
+        // Need to center if aspect ratio differs?
+        // pinCoords are in 0..imgSize space (roughly).
+        // If we center-cropped in processing, we should just scale.
         ctx.moveTo(p1[0] * scale, p1[1] * scale)
         ctx.lineTo(p2[0] * scale, p2[1] * scale)
         ctx.stroke()
@@ -255,39 +289,53 @@ function App() {
         doc.text('Preview (1:1 Scale)', margin + offsetX, margin + offsetY)
 
         // Image at 1:1 size
-        doc.addImage(previewImgData, 'JPEG', margin + offsetX, margin + 10 + offsetY, frameDiameterMm, frameDiameterMm)
+        const targetW = pageW - (margin * 2);
+        const targetH = pageH - (margin * 2);
+        doc.addImage(previewImgData, 'JPEG', margin + offsetX, margin + 10 + offsetY, targetW, targetH)
     }
 
     const drawTemplateContent = (offsetX: number, offsetY: number) => {
         doc.setFontSize(14)
         doc.text('Template / Stencil (1:1 Scale)', margin + offsetX, margin - 5 + offsetY)
         doc.setFontSize(10)
-        doc.text(`Diameter: ${frameDiameterMm}mm`, margin + offsetX, margin + offsetY)
+        doc.text(frameDesc, margin + offsetX, margin + offsetY)
 
-        const cx = (fullPageSize / 2) + offsetX
-        const cy = (fullPageSize / 2) + offsetY
-        const radius = frameDiameterMm / 2
+        const contentW = pageW - (margin * 2);
+        const contentH = pageH - (margin * 2);
 
-        // Main circle
+        const cx = margin + offsetX + (contentW / 2);
+        const cy = margin + 10 + offsetY + (contentH / 2); // +10 for header offset
+
+        // Shape Boundary
         doc.setLineWidth(0.2)
-        doc.circle(cx, cy, radius, 'S')
+        if (result.parameters.shape === 'rectangle') {
+            const rectX = cx - (contentW / 2);
+            const rectY = cy - (contentH / 2);
+            doc.rect(rectX, rectY, contentW, contentH, 'S');
+        } else {
+             const radius = contentW / 2;
+             doc.circle(cx, cy, radius, 'S');
+        }
 
         // Center Dot
         doc.setFillColor(0, 0, 0)
         doc.circle(cx, cy, 2, 'F')
 
-        // Dotted Lines
+        // Dotted Lines (Guides)
         doc.setLineWidth(0.1)
         doc.setLineDashPattern([2, 2], 0)
 
-        doc.line(cx - radius, cy, cx + radius, cy) // Horizontal
-        doc.line(cx, cy - radius, cx, cy + radius) // Vertical
+        // Horizontal & Vertical
+        const halfW = contentW / 2;
+        const halfH = contentH / 2;
 
-        const r45 = radius
-        const d1x = r45 * Math.cos(Math.PI / 4)
-        const d1y = r45 * Math.sin(Math.PI / 4)
-        doc.line(cx - d1x, cy - d1y, cx + d1x, cy + d1y) // Diag 1
-        doc.line(cx - d1x, cy + d1y, cx + d1x, cy - d1y) // Diag 2
+        doc.line(cx - halfW, cy, cx + halfW, cy) // Horizontal
+        doc.line(cx, cy - halfH, cx, cy + halfH) // Vertical
+
+        // Diagonals (Corner to Corner)
+        // For rectangle, corner is (cx-halfW, cy-halfH)
+        doc.line(cx - halfW, cy - halfH, cx + halfW, cy + halfH) // Diag 1
+        doc.line(cx - halfW, cy + halfH, cx + halfW, cy - halfH) // Diag 2
 
         doc.setLineDashPattern([], 0)
 
@@ -296,39 +344,73 @@ function App() {
         doc.setFontSize(7)
         const numPins = result.parameters.numberOfPins
 
+        // We need to map pin coords (pixels) to physical page coords (mm)
+        // Scale factor: contentW (mm) / imgWidth (px)
+        // Wait, imgSize is max dimension.
+        // If rectangle, we need to handle aspect ratio correctly.
+        // Assuming pinCoords are in pixel space relative to imgSize.
+
+        // Calculate scale from pixels to mm
+        // We know contentW corresponds to the physical width.
+        // We need to know the pixel width used during generation.
+        let pixelW = result.parameters.imgSize;
+        let pixelH = result.parameters.imgSize;
+
+        if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
+            const aspect = result.parameters.width / result.parameters.height;
+             if (aspect >= 1) {
+                pixelH = Math.round(result.parameters.imgSize / aspect);
+            } else {
+                pixelW = Math.round(result.parameters.imgSize * aspect);
+            }
+        }
+
+        const scaleX = contentW / pixelW;
+        const scaleY = contentH / pixelH;
+
+        // To center it:
+        const startX = cx - (contentW / 2);
+        const startY = cy - (contentH / 2);
+
         for (let i = 0; i < numPins; i++) {
             const pin = result.pinCoordinates[i]
-            const imgCenter = result.parameters.imgSize / 2
 
-            const dx = pin[0] - imgCenter
-            const dy = pin[1] - imgCenter
-            const angle = Math.atan2(dy, dx)
-
-            const x = cx + Math.cos(angle) * radius
-            const y = cy + Math.sin(angle) * radius
+            const px = startX + (pin[0] * scaleX);
+            const py = startY + (pin[1] * scaleY);
 
             doc.setFillColor(0, 0, 0)
-            doc.circle(x, y, pinRadius, 'F')
+            doc.circle(px, py, pinRadius, 'F')
 
-            const labelDist = 3
-            const labelX = cx + Math.cos(angle) * (radius + labelDist)
-            const labelY = cy + Math.sin(angle) * (radius + labelDist)
+            // Label offset
+            // Calculate vector from center to pin to push label outwards
+            const dx = px - cx;
+            const dy = py - cy;
+            const len = Math.sqrt(dx*dx + dy*dy);
+            const labelDist = 3;
+
+            let lx = px;
+            let ly = py;
+
+            if (len > 0) {
+                 lx = px + (dx/len) * labelDist;
+                 ly = py + (dy/len) * labelDist;
+            }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            doc.text(i.toString(), labelX, labelY, { align: 'center', baseline: 'middle' } as any)
+            doc.text(i.toString(), lx, ly, { align: 'center', baseline: 'middle' } as any)
         }
     }
 
 
     // --- Page 2: High Resolution Image (1:1 Scale - Full) ---
-    doc.addPage([fullPageSize, fullPageSize] as unknown as [number, number], fullPageSize > fullPageSize ? 'l' : 'p')
+    doc.addPage([pageW, pageH] as unknown as [number, number], pageW > pageH ? 'l' : 'p')
     drawPreviewContent(0, 0)
 
     // --- Page 2b: Tiled Preview (if larger than A4) ---
     // Use A4 Portrait (210x297) for tiles
-    if (fullPageSize > 200) { // Slight tolerance, essentially if it doesn't fit comfortably on one page width
-        const cols = Math.ceil(fullPageSize / a4Width)
-        const rows = Math.ceil(fullPageSize / a4Height)
+    if (pageW > 200 || pageH > 287) {
+        const cols = Math.ceil(pageW / a4Width)
+        const rows = Math.ceil(pageH / a4Height)
 
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -346,13 +428,13 @@ function App() {
     }
 
     // --- Page 3: Template / Stencil (1:1 Scale - Full) ---
-    doc.addPage([fullPageSize, fullPageSize] as unknown as [number, number], fullPageSize > fullPageSize ? 'l' : 'p')
+    doc.addPage([pageW, pageH] as unknown as [number, number], pageW > pageH ? 'l' : 'p')
     drawTemplateContent(0, 0)
 
     // --- Page 3b: Tiled Template (if larger than A4) ---
-    if (fullPageSize > 200) {
-        const cols = Math.ceil(fullPageSize / a4Width)
-        const rows = Math.ceil(fullPageSize / a4Height)
+    if (pageW > 200 || pageH > 287) {
+        const cols = Math.ceil(pageW / a4Width)
+        const rows = Math.ceil(pageH / a4Height)
 
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -417,30 +499,47 @@ function App() {
   const handleDownloadTemplateImage = () => {
     if (!result) return
 
-    // Create high-res canvas for the template
-    const canvasSize = 4000 // High res for printing
+    // Determine Canvas Aspect Ratio
+    let canvasW = 4000;
+    let canvasH = 4000;
+
+    if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
+        const aspect = result.parameters.width / result.parameters.height;
+        if (aspect >= 1) {
+            canvasH = Math.round(canvasW / aspect);
+        } else {
+            canvasW = Math.round(canvasH * aspect);
+        }
+    }
+
     const canvas = document.createElement('canvas')
-    canvas.width = canvasSize
-    canvas.height = canvasSize
+    canvas.width = canvasW
+    canvas.height = canvasH
     const ctx = canvas.getContext('2d')!
 
     // Fill white background
     ctx.fillStyle = 'white'
-    ctx.fillRect(0, 0, canvasSize, canvasSize)
+    ctx.fillRect(0, 0, canvasW, canvasH)
 
-    // Draw center and circle
-    const cx = canvasSize / 2
-    const cy = canvasSize / 2
+    // Padding
+    const padding = 100;
+    const contentW = canvasW - (padding * 2);
+    const contentH = canvasH - (padding * 2);
 
-    // Leave some padding
-    const padding = 100
-    const radius = (canvasSize - 2 * padding) / 2
+    const cx = canvasW / 2;
+    const cy = canvasH / 2;
 
-    // Draw main circle
+    // Draw Boundary
     ctx.strokeStyle = 'black'
     ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.arc(cx, cy, radius, 0, 2 * Math.PI)
+
+    if (result.parameters.shape === 'rectangle') {
+        ctx.rect(cx - contentW/2, cy - contentH/2, contentW, contentH);
+    } else {
+        const radius = contentW / 2;
+        ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+    }
     ctx.stroke()
 
     // Draw Center Dot
@@ -449,35 +548,31 @@ function App() {
     ctx.arc(cx, cy, 20, 0, 2 * Math.PI)
     ctx.fill()
 
-    // Draw 4 Dotted Lines
+    // Draw Guides
     ctx.strokeStyle = 'black'
-    ctx.lineWidth = 2 // Scaled line width (same as circle)
-    ctx.setLineDash([20, 20]) // Scaled dash pattern
+    ctx.lineWidth = 2
+    ctx.setLineDash([20, 20])
 
-    // 1. Horizontal
+    // Horizontal & Vertical
     ctx.beginPath()
-    ctx.moveTo(cx - radius, cy)
-    ctx.lineTo(cx + radius, cy)
+    ctx.moveTo(cx - contentW/2, cy)
+    ctx.lineTo(cx + contentW/2, cy)
     ctx.stroke()
 
-    // 2. Vertical
     ctx.beginPath()
-    ctx.moveTo(cx, cy - radius)
-    ctx.lineTo(cx, cy + radius)
+    ctx.moveTo(cx, cy - contentH/2)
+    ctx.lineTo(cx, cy + contentH/2)
     ctx.stroke()
 
-    // 3. Diagonal 1
-    const d1x = radius * Math.cos(Math.PI / 4)
-    const d1y = radius * Math.sin(Math.PI / 4)
+    // Diagonals
     ctx.beginPath()
-    ctx.moveTo(cx - d1x, cy - d1y)
-    ctx.lineTo(cx + d1x, cy + d1y)
+    ctx.moveTo(cx - contentW/2, cy - contentH/2)
+    ctx.lineTo(cx + contentW/2, cy + contentH/2)
     ctx.stroke()
 
-    // 4. Diagonal 2
     ctx.beginPath()
-    ctx.moveTo(cx - d1x, cy + d1y)
-    ctx.lineTo(cx + d1x, cy - d1y)
+    ctx.moveTo(cx - contentW/2, cy + contentH/2)
+    ctx.lineTo(cx + contentW/2, cy - contentH/2)
     ctx.stroke()
 
     ctx.setLineDash([]) // Reset
@@ -488,53 +583,57 @@ function App() {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
 
-    // Adjust font size based on number of pins to prevent overlap
-    // For 4000px canvas, we want readable numbers.
-    // Circumference = PI * diameter approx 3800 * PI = 12000px.
-    // 12000 / numPins (e.g. 300) = 40px spacing.
-    // Font size should be smaller than spacing.
-    const numPins = result.parameters.numberOfPins
-    // Calculate available arc length per pin
-    const circumference = Math.PI * (radius * 2)
-    const arcPerPin = circumference / numPins
-    // Set font size to 60% of available space, but clamped between 24 and 80
-    const fontSize = Math.max(24, Math.min(80, Math.floor(arcPerPin * 0.6)))
+    // Font size calculation (approximate)
+    const perimeter = result.parameters.shape === 'rectangle' ? 2 * (contentW + contentH) : Math.PI * contentW;
+    const spacePerPin = perimeter / result.parameters.numberOfPins;
+    const fontSize = Math.max(24, Math.min(80, Math.floor(spacePerPin * 0.6)))
     ctx.font = `${fontSize}px Arial`
 
-    const labelDist = 40 // distance for numbers
+    const labelDist = 40
 
-    for (let i = 0; i < numPins; i++) {
+    // Calculate scale from pixels (imgSize) to Canvas
+    let pixelW = result.parameters.imgSize;
+    let pixelH = result.parameters.imgSize;
+    if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
+        const aspect = result.parameters.width / result.parameters.height;
+         if (aspect >= 1) {
+            pixelH = Math.round(result.parameters.imgSize / aspect);
+        } else {
+            pixelW = Math.round(result.parameters.imgSize * aspect);
+        }
+    }
+
+    const scaleX = contentW / pixelW;
+    const scaleY = contentH / pixelH;
+
+    const startX = cx - (contentW / 2);
+    const startY = cy - (contentH / 2);
+
+    for (let i = 0; i < result.parameters.numberOfPins; i++) {
         const pin = result.pinCoordinates[i]
-        const imgCenter = result.parameters.imgSize / 2
 
-        const dx = pin[0] - imgCenter
-        const dy = pin[1] - imgCenter
-        const angle = Math.atan2(dy, dx)
-
-        // Place exactly on radius
-        const x = cx + Math.cos(angle) * radius
-        const y = cy + Math.sin(angle) * radius
+        const px = startX + (pin[0] * scaleX);
+        const py = startY + (pin[1] * scaleY);
 
         // Draw pin dot
         ctx.beginPath()
-        ctx.arc(x, y, pinRadius, 0, 2 * Math.PI)
+        ctx.arc(px, py, pinRadius, 0, 2 * Math.PI)
         ctx.fill()
 
-        // Draw pin number
-        // Rotate text to align with radius for better readability?
-        // Or just place outside. Placing outside is standard.
-        const labelX = cx + Math.cos(angle) * (radius + labelDist)
-        const labelY = cy + Math.sin(angle) * (radius + labelDist)
+        // Label position
+        const dx = px - cx;
+        const dy = py - cy;
+        const len = Math.sqrt(dx*dx + dy*dy);
 
-        // Optional: Rotate context for number
-        ctx.save()
-        ctx.translate(labelX, labelY)
-        ctx.rotate(angle + Math.PI / 2) // Rotate to be perpendicular to radius? Or aligned?
-        // Let's keep it simple: just draw text at location, maybe rotated if crowded.
-        // For now, simple text.
-        ctx.restore()
+        let lx = px;
+        let ly = py;
 
-        ctx.fillText(i.toString(), labelX, labelY)
+        if (len > 0) {
+            lx = px + (dx/len) * labelDist;
+            ly = py + (dy/len) * labelDist;
+        }
+
+        ctx.fillText(i.toString(), lx, ly)
     }
 
     // Download
@@ -730,12 +829,15 @@ ${result.lineSequence.join(', ')}`
           const stringArtResult = await generateStringArt(
             img,
             {
+              shape,
               numberOfPins,
               numberOfLines,
               lineWeight,
               minDistance: Math.max(2, Math.floor(numberOfPins / 36)),
               imgSize,
-              hoopDiameter: frameDiameter,
+              hoopDiameter: frameDiameter, // fallback
+              width,
+              height,
             },
             (progressUpdate, currentLineSequence, pinCoordinates) => {
               setProgress(progressUpdate)
@@ -800,21 +902,43 @@ ${result.lineSequence.join(', ')}`
     const currentTransform = canvasTransform
     canvas.style.transform = 'none'
     
-    canvas.width = 600
-    canvas.height = 600
-    const scale = canvas.width / currentImgSize
+    // Determine aspect ratio for canvas
+    let aspect = 1;
+    if (shape === 'rectangle' && width && height) {
+        aspect = width / height;
+    }
+
+    const baseSize = 600;
+    let canvasWidth, canvasHeight;
+
+    if (aspect >= 1) {
+        canvasWidth = baseSize;
+        canvasHeight = Math.round(baseSize / aspect);
+    } else {
+        canvasHeight = baseSize;
+        canvasWidth = Math.round(baseSize * aspect);
+    }
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    // Map currentImgSize (which is max dimension in logic) to canvas max dimension
+    const scale = Math.max(canvasWidth, canvasHeight) / currentImgSize;
 
     // Clear and redraw
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    const center = canvas.width / 2
-
-    // Circle boundary
+    // Boundary
     ctx.strokeStyle = '#e5e7eb' // Light gray border
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.arc(center, center, (canvas.width / 2) - 5, 0, Math.PI * 2)
+    if (shape === 'circle') {
+        const center = Math.min(canvasWidth, canvasHeight) / 2;
+        ctx.arc(canvasWidth / 2, canvasHeight / 2, center - 5, 0, Math.PI * 2)
+    } else {
+        ctx.rect(1, 1, canvasWidth - 2, canvasHeight - 2)
+    }
     ctx.stroke()
 
     // Draw lines
@@ -995,6 +1119,86 @@ ${result.lineSequence.join(', ')}`
 
           {/* Preset Selection */}
           <div className={!selectedImage ? "opacity-50" : ""}>
+            {/* Shape & Dimension Selection (Moved to top) */}
+            <Card className="card-hover border-2 mb-8">
+              <CardHeader className="pb-6">
+                <h2 className="text-heading-lg font-semibold">Shape & Dimensions</h2>
+                <p className="text-body-sm text-subtle mt-2">
+                  Select the shape and physical dimensions of your frame.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Shape Selector */}
+                  <div className="flex gap-4 justify-center sm:justify-start">
+                    <div
+                      className={`cursor-pointer p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${shape === 'circle' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                      onClick={() => setShape('circle')}
+                    >
+                      <div className="w-12 h-12 rounded-full border-2 border-current flex items-center justify-center">
+                         <div className="w-1 h-1 bg-current rounded-full"></div>
+                      </div>
+                      <span className="text-sm font-medium">Circle</span>
+                    </div>
+                    <div
+                      className={`cursor-pointer p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${shape === 'rectangle' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                      onClick={() => setShape('rectangle')}
+                    >
+                      <div className="w-12 h-12 border-2 border-current flex items-center justify-center">
+                          <div className="w-1 h-1 bg-current rounded-full"></div>
+                      </div>
+                      <span className="text-sm font-medium">Rectangle</span>
+                    </div>
+                  </div>
+
+                  {/* Dimensions */}
+                  <div className="mobile-stack">
+                    {shape === 'circle' ? (
+                       <MobileSlider
+                        label="Frame Diameter"
+                        min={200}
+                        max={1000}
+                        step={10}
+                        value={frameDiameter}
+                        onValueChange={setFrameDiameter}
+                        disabled={isProcessing}
+                        formatValue={(val) => `${val}mm`}
+                        className="w-full"
+                      />
+                    ) : (
+                      <>
+                        <MobileSlider
+                          label="Frame Width"
+                          min={200}
+                          max={1000}
+                          step={10}
+                          value={width}
+                          onValueChange={setWidth}
+                          disabled={isProcessing}
+                          formatValue={(val) => `${val}mm`}
+                          className="w-full"
+                        />
+                        <MobileSlider
+                          label="Frame Height"
+                          min={200}
+                          max={1000}
+                          step={10}
+                          value={height}
+                          onValueChange={setHeight}
+                          disabled={isProcessing}
+                          formatValue={(val) => `${val}mm`}
+                          className="w-full"
+                        />
+                      </>
+                    )}
+                     <div className="text-body-sm text-subtle mt-2 leading-relaxed">
+                      Physical size of the frame. Used for thread length calculation and template generation.
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Preset Selection */}
             <Card className="card-hover border-2">
               <CardHeader className="pb-6">
@@ -1085,9 +1289,9 @@ ${result.lineSequence.join(', ')}`
                             />
                             
                             <MobileSlider
-                              label="Canvas Size"
+                              label="Processing Resolution (Pixels)"
                               min={200}
-                              max={600}
+                              max={1000}
                               step={50}
                               value={imgSize}
                               onValueChange={setImgSize}
@@ -1096,22 +1300,7 @@ ${result.lineSequence.join(', ')}`
                               className="w-full"
                             />
                             <div className="text-body-sm text-subtle mt-2 leading-relaxed">
-                              Higher resolution improves quality but takes longer.
-                            </div>
-
-                            <MobileSlider
-                              label="Frame Diameter"
-                              min={200}
-                              max={1000}
-                              step={10}
-                              value={frameDiameter}
-                              onValueChange={setFrameDiameter}
-                              disabled={isProcessing}
-                              formatValue={(val) => `${val}mm`}
-                              className="w-full"
-                            />
-                            <div className="text-body-sm text-subtle mt-2 leading-relaxed">
-                              Physical size of the frame. Used for thread length calculation and template generation.
+                              Higher resolution improves quality but takes longer. Represents the maximum dimension.
                             </div>
                           </div>
                           

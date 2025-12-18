@@ -8,19 +8,135 @@ import { calculatePinPositions } from '../math/geometry';
 import { DEFAULT_CONFIG } from '../utils/constants';
 
 /**
- * Calculate pin coordinates around a circular boundary
+ * Calculate pin coordinates around a circular or rectangular boundary
  */
 export function calculatePins(params: Partial<StringArtParameters> = {}): PinCoordinate[] {
   const {
     numberOfPins = DEFAULT_CONFIG.N_PINS,
     imgSize = DEFAULT_CONFIG.IMG_SIZE,
+    shape = 'circle',
   } = params;
 
+  if (shape === 'rectangle') {
+    return calculateRectangularPins(params);
+  }
+
+  // Circle (Default)
   const center = imgSize / 2;
   const radius = imgSize / 2 - 0.5; // Leave half-pixel margin
 
   return calculatePinPositions(numberOfPins, center, radius);
 }
+
+/**
+ * Calculate pin coordinates for a rectangular boundary
+ * Ensures pins are placed at corners and distributed evenly.
+ */
+export function calculateRectangularPins(params: Partial<StringArtParameters>): PinCoordinate[] {
+  const {
+    numberOfPins = DEFAULT_CONFIG.N_PINS,
+    imgSize = DEFAULT_CONFIG.IMG_SIZE,
+    width = 100, // Physical width
+    height = 100, // Physical height
+  } = params;
+
+  // Map physical dimensions to pixels.
+  // imgSize corresponds to the MAX dimension.
+  const aspectRatio = width / height;
+
+  let pixelWidth: number;
+  let pixelHeight: number;
+
+  if (aspectRatio >= 1) {
+    pixelWidth = imgSize;
+    pixelHeight = Math.round(imgSize / aspectRatio);
+  } else {
+    pixelHeight = imgSize;
+    pixelWidth = Math.round(imgSize * aspectRatio);
+  }
+
+  // Ensure we have at least 1px
+  pixelWidth = Math.max(1, pixelWidth);
+  pixelHeight = Math.max(1, pixelHeight);
+
+  // We need to place pins on the perimeter: 2*(w + h)
+  // We want to snap to corners.
+
+  // Calculate perimeter length
+  const perimeter = 2 * (width + height);
+
+  // Ideal spacing
+  const spacing = perimeter / numberOfPins;
+
+  // Number of intervals (pins - 1 roughly, but it's a loop so pins = intervals) on each side
+  // To ensure corners, we force integer number of intervals per side.
+  let pinsW = Math.round(width / spacing);
+  let pinsH = Math.round(height / spacing);
+
+  // Ensure at least 1 interval per side
+  pinsW = Math.max(1, pinsW);
+  pinsH = Math.max(1, pinsH);
+
+  // Total pins might slightly vary from requested, but guarantees symmetry
+  // Actual pins = 2 * (pinsW + pinsH)
+  // We should try to stick close to requested numberOfPins.
+
+  // Let's refine pinsW/pinsH to sum to numberOfPins/2
+  const targetHalfPins = numberOfPins / 2;
+  const totalUnits = width + height;
+
+  pinsW = Math.round(targetHalfPins * (width / totalUnits));
+  pinsH = Math.round(targetHalfPins * (height / totalUnits));
+
+  if (pinsW < 1) pinsW = 1;
+  if (pinsH < 1) pinsH = 1;
+
+  // Calculate exact coordinates
+  // Top side: (0,0) to (W, 0). pinsW intervals.
+  // Right side: (W, 0) to (W, H). pinsH intervals.
+  // Bottom side: (W, H) to (0, H). pinsW intervals.
+  // Left side: (0, H) to (0, 0). pinsH intervals.
+
+  const coords: PinCoordinate[] = [];
+
+  // We adjust coords to be 0..pixelWidth-1
+  const maxX = pixelWidth - 1;
+  const maxY = pixelHeight - 1;
+
+  // Top: Left to Right (excluding last point which is start of Right)
+  for (let i = 0; i < pinsW; i++) {
+    const t = i / pinsW;
+    coords.push([Math.round(t * maxX), 0]);
+  }
+
+  // Right: Top to Bottom
+  for (let i = 0; i < pinsH; i++) {
+    const t = i / pinsH;
+    coords.push([maxX, Math.round(t * maxY)]);
+  }
+
+  // Bottom: Right to Left
+  for (let i = 0; i < pinsW; i++) {
+    const t = i / pinsW;
+    coords.push([Math.round((1 - t) * maxX), maxY]);
+  }
+
+  // Left: Bottom to Top
+  for (let i = 0; i < pinsH; i++) {
+    const t = i / pinsH;
+    coords.push([0, Math.round((1 - t) * maxY)]);
+  }
+
+  // Note on Centering:
+  // The `processImageForStringArt` now crops the image to the specific aspect ratio of the rectangle.
+  // This means the image data itself is `pixelWidth x pixelHeight`.
+  // Therefore, the pin coordinates must align with this tightly cropped image space (0..pixelWidth, 0..pixelHeight).
+  // We do NOT add any offset to center it within a larger square `imgSize`, because the underlying error matrix
+  // will match the cropped image dimensions exactly.
+
+  return coords;
+}
+
 
 /**
  * Validate pin parameters

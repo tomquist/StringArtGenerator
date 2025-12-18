@@ -3,52 +3,87 @@
  * Extracted from the original implementation
  */
 
-import type { GrayscaleWeights, ProcessedImageData } from '../../types';
+import type { GrayscaleWeights, ProcessedImageData, StringArtShape } from '../../types';
 import { DEFAULT_CONFIG, GRAYSCALE_WEIGHTS } from '../utils/constants';
 
 /**
- * Crop image to square format, centered
- * Extracted from the original cropping logic
+ * Crop image to specific shape format, centered
  */
-export function cropToSquare(
+export function cropToShape(
   imageElement: HTMLImageElement,
-  targetSize: number = DEFAULT_CONFIG.IMG_SIZE
+  targetSize: number = DEFAULT_CONFIG.IMG_SIZE,
+  shape: StringArtShape = 'circle',
+  widthMM: number = 100,
+  heightMM: number = 100
 ): ImageData {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   
-  canvas.width = targetSize;
-  canvas.height = targetSize;
+  // Determine target aspect ratio
+  let aspectRatio = 1;
+  if (shape === 'rectangle' && heightMM > 0) {
+    aspectRatio = widthMM / heightMM;
+  }
+
+  // Determine pixel dimensions
+  let targetWidth: number;
+  let targetHeight: number;
+
+  if (aspectRatio >= 1) {
+    targetWidth = targetSize;
+    targetHeight = Math.round(targetSize / aspectRatio);
+  } else {
+    targetHeight = targetSize;
+    targetWidth = Math.round(targetSize * aspectRatio);
+  }
+
+  // Ensure valid dimensions
+  targetWidth = Math.max(1, targetWidth);
+  targetHeight = Math.max(1, targetHeight);
+
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
   
   const { width: imgWidth, height: imgHeight } = imageElement;
+  const imgAspectRatio = imgWidth / imgHeight;
   
-  // Calculate crop region for square center crop
+  // Calculate crop region to cover the target area (Center Crop)
   let selectedWidth: number;
   let selectedHeight: number;
   let xOffset = 0;
   let yOffset = 0;
   
-  if (imgHeight > imgWidth) {
-    selectedWidth = imgWidth;
-    selectedHeight = imgWidth;
-    yOffset = Math.floor((imgHeight - imgWidth) / 2);
-  } else if (imgWidth > imgHeight) {
-    selectedWidth = imgHeight;
+  // We want to fill the target aspect ratio
+  if (imgAspectRatio > aspectRatio) {
+    // Image is wider than target
     selectedHeight = imgHeight;
-    xOffset = Math.floor((imgWidth - imgHeight) / 2);
+    selectedWidth = imgHeight * aspectRatio;
+    xOffset = (imgWidth - selectedWidth) / 2;
   } else {
+    // Image is taller than target
     selectedWidth = imgWidth;
-    selectedHeight = imgHeight;
+    selectedHeight = imgWidth / aspectRatio;
+    yOffset = (imgHeight - selectedHeight) / 2;
   }
   
   // Draw cropped and scaled image
   ctx.drawImage(
     imageElement,
     xOffset, yOffset, selectedWidth, selectedHeight,
-    0, 0, targetSize, targetSize
+    0, 0, targetWidth, targetHeight
   );
   
-  return ctx.getImageData(0, 0, targetSize, targetSize);
+  return ctx.getImageData(0, 0, targetWidth, targetHeight);
+}
+
+/**
+ * Keep original for backward compatibility if imported elsewhere
+ */
+export function cropToSquare(
+  imageElement: HTMLImageElement,
+  targetSize: number = DEFAULT_CONFIG.IMG_SIZE
+): ImageData {
+  return cropToShape(imageElement, targetSize, 'circle');
 }
 
 /**
@@ -114,7 +149,7 @@ export function applyCircularMask(imageData: ImageData): ImageData {
   ctx.arc(
     imageData.width / 2,
     imageData.height / 2,
-    imageData.width / 2,
+    Math.min(imageData.width, imageData.height) / 2,
     0,
     Math.PI * 2
   );
@@ -126,20 +161,26 @@ export function applyCircularMask(imageData: ImageData): ImageData {
 
 /**
  * Process image through the complete pipeline
- * Crop -> Grayscale -> Circular Mask
+ * Crop -> Grayscale -> Mask (if circle)
  */
 export function processImageForStringArt(
   imageElement: HTMLImageElement,
-  targetSize: number = DEFAULT_CONFIG.IMG_SIZE
+  targetSize: number = DEFAULT_CONFIG.IMG_SIZE,
+  shape: StringArtShape = 'circle',
+  widthMM: number = 100,
+  heightMM: number = 100
 ): ProcessedImageData {
-  // Step 1: Crop to square
-  const croppedImageData = cropToSquare(imageElement, targetSize);
+  // Step 1: Crop to shape
+  const croppedImageData = cropToShape(imageElement, targetSize, shape, widthMM, heightMM);
   
   // Step 2: Convert to grayscale
   const grayscaleImageData = convertToGrayscale(croppedImageData);
   
-  // Step 3: Apply circular mask
-  const circularMaskedImageData = applyCircularMask(grayscaleImageData);
+  // Step 3: Apply circular mask ONLY if circle
+  let finalImageData = grayscaleImageData;
+  if (shape === 'circle') {
+    finalImageData = applyCircularMask(grayscaleImageData);
+  }
   
   return {
     originalImage: imageElement,
@@ -154,13 +195,13 @@ export function processImageForStringArt(
       height: grayscaleImageData.height,
     },
     circularMaskedImage: {
-      data: circularMaskedImageData.data,
-      width: circularMaskedImageData.width,
-      height: circularMaskedImageData.height,
+      data: finalImageData.data,
+      width: finalImageData.width,
+      height: finalImageData.height,
     },
     dimensions: {
-      width: targetSize,
-      height: targetSize,
+      width: finalImageData.width,
+      height: finalImageData.height,
     },
   };
 }
