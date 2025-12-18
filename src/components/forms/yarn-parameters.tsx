@@ -64,6 +64,8 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
     updateSpec({ material: value });
   };
 
+  const parseNumber = (val: string) => val ? parseFloat(val) : undefined;
+
   return (
     <Card className="border-2 mt-4">
       <CardHeader className="pb-4">
@@ -105,7 +107,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                  type="number"
                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                  value={spec.ticketNo || ''}
-                 onChange={(e) => updateSpec({ ticketNo: parseFloat(e.target.value) })}
+                 onChange={(e) => updateSpec({ ticketNo: parseNumber(e.target.value) })}
                  disabled={disabled}
                />
             </div>
@@ -119,7 +121,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   type="number"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.nm || ''}
-                  onChange={(e) => updateSpec({ nm: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ nm: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -130,7 +132,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.ply || ''}
                   placeholder="1"
-                  onChange={(e) => updateSpec({ ply: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ ply: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -144,7 +146,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                  type="number"
                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                  value={spec.tex || ''}
-                 onChange={(e) => updateSpec({ tex: parseFloat(e.target.value) })}
+                 onChange={(e) => updateSpec({ tex: parseNumber(e.target.value) })}
                  disabled={disabled}
                />
             </div>
@@ -158,7 +160,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   type="number"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.dtex || ''}
-                  onChange={(e) => updateSpec({ dtex: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ dtex: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -169,7 +171,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.ply || ''}
                   placeholder="1"
-                  onChange={(e) => updateSpec({ ply: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ ply: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -184,7 +186,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   type="number"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.denier || ''}
-                  onChange={(e) => updateSpec({ denier: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ denier: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -195,7 +197,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.ply || ''}
                   placeholder="1"
-                  onChange={(e) => updateSpec({ ply: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ ply: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -210,7 +212,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   type="number"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.meters || ''}
-                  onChange={(e) => updateSpec({ meters: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ meters: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -220,7 +222,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                   type="number"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={spec.grams || ''}
-                  onChange={(e) => updateSpec({ grams: parseFloat(e.target.value) })}
+                  onChange={(e) => updateSpec({ grams: parseNumber(e.target.value) })}
                   disabled={disabled}
                 />
               </div>
@@ -235,7 +237,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                  step="0.01"
                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                  value={spec.diameterMM || ''}
-                 onChange={(e) => updateSpec({ diameterMM: parseFloat(e.target.value) })}
+                 onChange={(e) => updateSpec({ diameterMM: parseNumber(e.target.value) })}
                  disabled={disabled}
                />
             </div>
@@ -294,7 +296,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                      step="0.01"
                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                      value={spec.k || 1.10}
-                     onChange={(e) => updateSpec({ k: parseFloat(e.target.value) })}
+                     onChange={(e) => updateSpec({ k: parseNumber(e.target.value) })}
                      disabled={disabled}
                    />
                    <p className="text-xs text-subtle mt-1">Adjusts effective thickness for visual density (default 1.10)</p>
@@ -307,7 +309,7 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                      value={spec.overrideDiameterMM || ''}
                      placeholder="Optional"
-                     onChange={(e) => updateSpec({ overrideDiameterMM: e.target.value ? parseFloat(e.target.value) : undefined })}
+                     onChange={(e) => updateSpec({ overrideDiameterMM: parseNumber(e.target.value) })}
                      disabled={disabled}
                    />
                 </div>
