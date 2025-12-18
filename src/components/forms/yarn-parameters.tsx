@@ -40,10 +40,16 @@ export const YarnParameters: React.FC<YarnParametersProps> = ({
   const diameterMM = calculateDiameterMM(spec);
   const lineWeight = calculateLineWeight(diameterMM * (spec.k || 1.10), hoopDiameterMM, imgSizePx);
 
+  // Keep reference to latest onChange to avoid effect loop
+  const onChangeRef = React.useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   // Notify parent on changes
   useEffect(() => {
-    onChange(spec, lineWeight);
-  }, [spec, hoopDiameterMM, imgSizePx]); // Don't include lineWeight or we loop if parent updates it
+    onChangeRef.current(spec, lineWeight);
+  }, [spec, lineWeight]);
 
   const updateSpec = (updates: Partial<YarnSpec>) => {
     setSpec(prev => ({ ...prev, ...updates }));
