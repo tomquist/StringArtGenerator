@@ -9,6 +9,8 @@ export type Point = {
 
 export type PinCoordinate = [number, number];
 
+import type { YarnSpec } from './yarn';
+
 export type StringArtParameters = {
   numberOfPins: number;
   numberOfLines: number;
@@ -17,6 +19,7 @@ export type StringArtParameters = {
   imgSize: number;
   scale: number;
   hoopDiameter: number;
+  yarnSpec?: YarnSpec;
 };
 
 export type LineCache = {
