@@ -8,6 +8,7 @@ import { processImageForStringArt, imageDataToFlatArray } from './imageProcessor
 import { calculatePins } from './pinCalculation';
 import { precalculateLineCache, optimizeStringArt, createErrorMatrix } from './lineOptimization';
 import { DEFAULT_CONFIG } from '../utils/constants';
+import { calculateThreadThicknessMM, calculateLineWeight } from './yarnConversion';
 
 /**
  * Main function to generate string art from an image
@@ -19,15 +20,25 @@ export async function generateStringArt(
 ): Promise<StringArtResult> {
   const startTime = Date.now();
 
+  // Calculate lineWeight from yarnSpec if present
+  let lineWeight = params.lineWeight ?? DEFAULT_CONFIG.LINE_WEIGHT;
+  if (params.yarnSpec) {
+    const threadThicknessMM = calculateThreadThicknessMM(params.yarnSpec);
+    const hoopDiameter = params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4);
+    const imgSize = params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE;
+    lineWeight = calculateLineWeight(threadThicknessMM, hoopDiameter, imgSize);
+  }
+
   // Merge with default parameters
   const parameters: StringArtParameters = {
     numberOfPins: params.numberOfPins ?? DEFAULT_CONFIG.N_PINS,
     numberOfLines: params.numberOfLines ?? DEFAULT_CONFIG.MAX_LINES,
-    lineWeight: params.lineWeight ?? DEFAULT_CONFIG.LINE_WEIGHT,
+    lineWeight: lineWeight,
     minDistance: params.minDistance ?? DEFAULT_CONFIG.MIN_DISTANCE,
     imgSize: params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE,
     scale: params.scale ?? DEFAULT_CONFIG.SCALE,
-    hoopDiameter: params.hoopDiameter ?? DEFAULT_CONFIG.HOOP_DIAMETER,
+    hoopDiameter: params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4),
+    yarnSpec: params.yarnSpec,
   };
 
   // Step 1: Process the image

@@ -4,6 +4,8 @@ import { generateStringArt } from './lib/algorithms/stringArtEngine'
 import type { StringArtResult, OptimizationProgress } from './types'
 import { useMobileCanvas } from './hooks/useMobileCanvas'
 import { MobileSlider } from './components/ui/mobile-slider'
+import { YarnParameters } from './components/forms/yarn-parameters'
+import type { YarnSpec } from './types/yarn'
 
 // Layout Components
 import { 
@@ -71,6 +73,7 @@ function App() {
   const [lineWeight, setLineWeight] = useState(20)
   const [imgSize, setImgSize] = useState(500)
   const [frameDiameter, setFrameDiameter] = useState(500) // mm
+  const [yarnSpec, setYarnSpec] = useState<YarnSpec | undefined>(undefined)
 
   // Preset configurations
   const presets: PresetConfig[] = [
@@ -1070,20 +1073,16 @@ ${result.lineSequence.join(', ')}`
                               More lines create darker, richer results.
                             </div>
                             
-                            <MobileSlider
-                              label="Line Weight"
-                              min={5}
-                              max={50}
-                              step={5}
-                              value={lineWeight}
-                              onValueChange={setLineWeight}
+                            <YarnParameters
+                              onChange={(spec, weight) => {
+                                setYarnSpec(spec);
+                                setLineWeight(weight);
+                              }}
+                              hoopDiameterMM={frameDiameter}
+                              imgSizePx={imgSize}
+                              initialSpec={yarnSpec}
                               disabled={isProcessing}
-                              formatValue={(val) => `${val}px`}
-                              className="w-full"
                             />
-                            <div className="text-body-sm text-subtle mt-2 leading-relaxed">
-                              Controls the visual thickness of string lines.
-                            </div>
                             
                             <MobileSlider
                               label="Canvas Size"
