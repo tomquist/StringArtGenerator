@@ -24,7 +24,7 @@ export async function generateStringArt(
   let lineWeight = params.lineWeight ?? DEFAULT_CONFIG.LINE_WEIGHT;
   if (params.yarnSpec) {
     const threadThicknessMM = calculateThreadThicknessMM(params.yarnSpec);
-    const hoopDiameter = params.hoopDiameter ?? DEFAULT_CONFIG.HOOP_DIAMETER;
+    const hoopDiameter = params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4);
     const imgSize = params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE;
     lineWeight = calculateLineWeight(threadThicknessMM, hoopDiameter, imgSize);
   }
@@ -37,7 +37,7 @@ export async function generateStringArt(
     minDistance: params.minDistance ?? DEFAULT_CONFIG.MIN_DISTANCE,
     imgSize: params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE,
     scale: params.scale ?? DEFAULT_CONFIG.SCALE,
-    hoopDiameter: params.hoopDiameter ?? DEFAULT_CONFIG.HOOP_DIAMETER,
+    hoopDiameter: params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4),
     yarnSpec: params.yarnSpec,
   };
 
