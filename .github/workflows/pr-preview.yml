@@ -11,6 +11,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: pr-preview-${{ github.event.number }}

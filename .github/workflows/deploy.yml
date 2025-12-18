@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: "pages"
@@ -36,6 +38,9 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path || '/' }}
+
+      - name: Create .nojekyll
+        run: touch dist/.nojekyll
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
