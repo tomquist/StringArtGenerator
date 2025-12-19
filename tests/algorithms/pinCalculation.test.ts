@@ -56,6 +56,29 @@ describe('Pin Calculation', () => {
       // Should NOT be centered in 200x200 (which would be offset Y by 50)
       // So minY should definitely be 0, not 50.
     });
+
+    it('should distribute pins correctly for non-even aspect ratios to match numberOfPins', () => {
+        // Case: 20 pins, 2:1 ratio (width 200, height 100)
+        // Total units = 300.
+        // Target half pins = 10.
+        // rawHalfW = 10 * (200/300) = 6.66...
+        // rawHalfH = 10 * (100/300) = 3.33...
+        // baseW = 6, baseH = 3.
+        // Remainder = 10 - 9 = 1.
+        // rawHalfW has larger fractional part (.66 vs .33).
+        // baseW -> 7.
+        // Final: pinsW = 7, pinsH = 3.
+        // Total = 2 * (7 + 3) = 20. Exact match.
+
+        const params: Partial<StringArtParameters> = {
+            numberOfPins: 20,
+            width: 200,
+            height: 100,
+            imgSize: 200
+        };
+        const pins = calculateRectangularPins(params);
+        expect(pins.length).toBe(20);
+    });
   });
 
   describe('calculatePins (Circle)', () => {

@@ -85,11 +85,26 @@ export function calculateRectangularPins(params: Partial<StringArtParameters>): 
   const targetHalfPins = numberOfPins / 2;
   const totalUnits = width + height;
 
-  pinsW = Math.round(targetHalfPins * (width / totalUnits));
-  pinsH = Math.round(targetHalfPins * (height / totalUnits));
+  const rawHalfW = targetHalfPins * (width / totalUnits);
+  const rawHalfH = targetHalfPins * (height / totalUnits);
 
-  if (pinsW < 1) pinsW = 1;
-  if (pinsH < 1) pinsH = 1;
+  let baseW = Math.floor(rawHalfW);
+  let baseH = Math.floor(rawHalfH);
+
+  const remainder = Math.round(targetHalfPins - (baseW + baseH));
+
+  // Distribute remainder (0 or 1) to the side with larger fractional part
+  if (remainder > 0) {
+    if ((rawHalfW % 1) >= (rawHalfH % 1)) {
+      baseW += remainder;
+    } else {
+      baseH += remainder;
+    }
+  }
+
+  // Enforce min 1 per side
+  pinsW = Math.max(1, baseW);
+  pinsH = Math.max(1, baseH);
 
   // Calculate exact coordinates
   // Top side: (0,0) to (W, 0). pinsW intervals.
@@ -133,6 +148,10 @@ export function calculateRectangularPins(params: Partial<StringArtParameters>): 
   // Therefore, the pin coordinates must align with this tightly cropped image space (0..pixelWidth, 0..pixelHeight).
   // We do NOT add any offset to center it within a larger square `imgSize`, because the underlying error matrix
   // will match the cropped image dimensions exactly.
+
+  if (coords.length !== numberOfPins) {
+    console.warn(`Generated ${coords.length} pins, but requested ${numberOfPins}. This is expected for odd pin counts on rectangles but should be close.`);
+  }
 
   return coords;
 }
