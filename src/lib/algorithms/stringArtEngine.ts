@@ -40,8 +40,8 @@ export async function generateStringArt(
     imgSize: params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE,
     scale: params.scale ?? DEFAULT_CONFIG.SCALE,
     hoopDiameter: params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4),
-    width: params.width,
-    height: params.height,
+    width: params.width ?? 100,
+    height: params.height ?? 100,
     yarnSpec: params.yarnSpec,
   };
 
@@ -65,26 +65,14 @@ export async function generateStringArt(
 
   // Step 4: Create error matrix from processed image
   console.log('Creating error matrix...');
-  // Note: createErrorMatrix likely expects a square array if imgSize is used as dimensions.
-  // The processedImageData.circularMaskedImage matches the aspect ratio now.
-  // However, `createErrorMatrix` logic (in `lineOptimization.ts`) likely assumes a square grid of `imgSize x imgSize`.
-  // If we pass a non-square image array, `createErrorMatrix` needs to handle it.
-  // Let's verify `lineOptimization.ts` in a moment.
-  // For now, assume `createErrorMatrix` uses the flattened array and `imgSize` correctly
-  // OR we need to update `lineOptimization` too.
-  // Wait, `processImageForStringArt` returns dimensions.
 
+  // Convert processed image to flattened array for optimization
+  // createErrorMatrix accepts any 1D array length (supporting both square and rectangular images)
   const imageArray = imageDataToFlatArray({
     data: processedImageData.circularMaskedImage.data,
     width: processedImageData.circularMaskedImage.width,
     height: processedImageData.circularMaskedImage.height,
   } as ImageData);
-
-  // If the image is not square, we might have issues if optimizeStringArt expects square.
-  // Let's pass dimensions if needed, or if it infers from array length.
-  // Actually, standard `stringArtEngine` usually works on square.
-  // If we changed to rectangle, we need to check `lineOptimization.ts`.
-  // I will check `lineOptimization.ts` after this block update.
 
   const errorMatrix = createErrorMatrix(imageArray);
 
