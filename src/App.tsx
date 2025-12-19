@@ -62,10 +62,28 @@ function calculateCoordinateMapping(
   }
 
   // Fix scaling for rectangular shape to ensure pins hit the edges
-  const scaleX = targetWidth / (shape === 'rectangle' ? (pixelW - 1) : pixelW);
-  const scaleY = targetHeight / (shape === 'rectangle' ? (pixelH - 1) : pixelH);
+  // Unify scaling logic: map [0, pixelW-1] to [0, targetWidth]
+  // For rectangle: pins are at 0..pixelW-1.
+  // For circle: pins effectively span the full diameter, represented by pixelW-1 range.
+  // This ensures circle pins also touch the boundary if they are at the edge.
+  const denominatorX = Math.max(1, pixelW - 1);
+  const denominatorY = Math.max(1, pixelH - 1);
 
-  return { pixelW, pixelH, scaleX, scaleY };
+  const scaleX = targetWidth / denominatorX;
+  const scaleY = targetHeight / denominatorY;
+
+  // Calculate offsets to center/align the shape
+  // For rectangle: starts at 0, so offset is 0.
+  // For circle: center is at pixelW/2. Radius is pixelW/2 - 0.5.
+  // Min val is 0.5. Max val is pixelW-0.5.
+  // If we map 0 to 0 (via scale), then 0.5 maps to 0.5*scale.
+  // We want 0.5 to map to 0 (touch edge).
+  // So offset should be -0.5 * scale.
+  // This applies if shape is circle.
+  const offsetX = shape === 'circle' ? -0.5 * scaleX : 0;
+  const offsetY = shape === 'circle' ? -0.5 * scaleY : 0;
+
+  return { pixelW, pixelH, scaleX, scaleY, offsetX, offsetY };
 }
 
 function App() {
@@ -294,45 +312,49 @@ function App() {
 
     // Scale logic: imgSize is the max dimension in pixel space.
     // canvasW/H max dimension should map to imgSize.
-    const maxCanvasDim = Math.max(canvasW, canvasH);
-    const scale = maxCanvasDim / result.parameters.imgSize
+    const { scaleX, scaleY, offsetX, offsetY } = calculateCoordinateMapping(
+        result.parameters.imgSize,
+        result.parameters.shape,
+        result.parameters.width,
+        result.parameters.height,
+        canvasW,
+        canvasH
+    );
     const pinCoords = result.pinCoordinates
 
     for (let i = 0; i < result.lineSequence.length - 1; i++) {
         ctx.beginPath()
         const p1 = pinCoords[result.lineSequence[i]]
         const p2 = pinCoords[result.lineSequence[i+1]]
-        // Need to center if aspect ratio differs?
-        // pinCoords are in 0..imgSize space (roughly).
-        // If we center-cropped in processing, we should just scale.
-        ctx.moveTo(p1[0] * scale, p1[1] * scale)
-        ctx.lineTo(p2[0] * scale, p2[1] * scale)
+
+        ctx.moveTo(p1[0] * scaleX + offsetX, p1[1] * scaleY + offsetY)
+        ctx.lineTo(p2[0] * scaleX + offsetX, p2[1] * scaleY + offsetY)
         ctx.stroke()
     }
     const previewImgData = canvas.toDataURL('image/jpeg', 0.8)
 
     // 2. Helper Functions for Drawing Content
-    const drawPreviewContent = (offsetX: number, offsetY: number) => {
+    const drawPreviewContent = (pageOffsetX: number, pageOffsetY: number) => {
         doc.setFontSize(18)
-        doc.text('Preview (1:1 Scale)', margin + offsetX, margin + offsetY)
+        doc.text('Preview (1:1 Scale)', margin + pageOffsetX, margin + pageOffsetY)
 
         // Image at 1:1 size
         const targetW = pageW - (margin * 2);
         const targetH = pageH - (margin * 2);
-        doc.addImage(previewImgData, 'JPEG', margin + offsetX, margin + 10 + offsetY, targetW, targetH)
+        doc.addImage(previewImgData, 'JPEG', margin + pageOffsetX, margin + 10 + pageOffsetY, targetW, targetH)
     }
 
-    const drawTemplateContent = (offsetX: number, offsetY: number) => {
+    const drawTemplateContent = (pageOffsetX: number, pageOffsetY: number) => {
         doc.setFontSize(14)
-        doc.text('Template / Stencil (1:1 Scale)', margin + offsetX, margin - 5 + offsetY)
+        doc.text('Template / Stencil (1:1 Scale)', margin + pageOffsetX, margin - 5 + pageOffsetY)
         doc.setFontSize(10)
-        doc.text(frameDesc, margin + offsetX, margin + offsetY)
+        doc.text(frameDesc, margin + pageOffsetX, margin + pageOffsetY)
 
         const contentW = pageW - (margin * 2);
         const contentH = pageH - (margin * 2);
 
-        const cx = margin + offsetX + (contentW / 2);
-        const cy = margin + 10 + offsetY + (contentH / 2); // +10 for header offset
+        const cx = margin + pageOffsetX + (contentW / 2);
+        const cy = margin + 10 + pageOffsetY + (contentH / 2); // +10 for header offset
 
         // Shape Boundary
         doc.setLineWidth(0.2)
@@ -373,7 +395,7 @@ function App() {
         const numPins = result.parameters.numberOfPins
 
         // We need to map pin coords (pixels) to physical page coords (mm)
-        const { scaleX, scaleY } = calculateCoordinateMapping(
+        const { scaleX, scaleY, offsetX, offsetY } = calculateCoordinateMapping(
           result.parameters.imgSize,
           result.parameters.shape,
           result.parameters.width,
@@ -382,15 +404,15 @@ function App() {
           contentH
         );
 
-        // To center it:
+        // To center it (plus any shape-specific offset)
         const startX = cx - (contentW / 2);
         const startY = cy - (contentH / 2);
 
         for (let i = 0; i < numPins; i++) {
             const pin = result.pinCoordinates[i]
 
-            const px = startX + (pin[0] * scaleX);
-            const py = startY + (pin[1] * scaleY);
+            const px = startX + (pin[0] * scaleX + offsetX);
+            const py = startY + (pin[1] * scaleY + offsetY);
 
             doc.setFillColor(0, 0, 0)
             doc.circle(px, py, pinRadius, 'F')
@@ -606,7 +628,7 @@ function App() {
     const labelDist = 40
 
     // Calculate scale from pixels (imgSize) to Canvas
-    const { scaleX, scaleY } = calculateCoordinateMapping(
+    const { scaleX, scaleY, offsetX, offsetY } = calculateCoordinateMapping(
       result.parameters.imgSize,
       result.parameters.shape,
       result.parameters.width,
@@ -621,8 +643,8 @@ function App() {
     for (let i = 0; i < result.parameters.numberOfPins; i++) {
         const pin = result.pinCoordinates[i]
 
-        const px = startX + (pin[0] * scaleX);
-        const py = startY + (pin[1] * scaleY);
+        const px = startX + (pin[0] * scaleX + offsetX);
+        const py = startY + (pin[1] * scaleY + offsetY);
 
         // Draw pin dot
         ctx.beginPath()
@@ -932,7 +954,7 @@ ${result.lineSequence.join(', ')}`
     canvas.height = canvasHeight;
 
     // Map currentImgSize (which is max dimension in logic) to canvas max dimension
-    const { scaleX, scaleY } = calculateCoordinateMapping(
+    const { scaleX, scaleY, offsetX, offsetY } = calculateCoordinateMapping(
       currentImgSize,
       shape,
       width,
@@ -950,10 +972,11 @@ ${result.lineSequence.join(', ')}`
     ctx.lineWidth = 1
     ctx.beginPath()
     if (shape === 'circle') {
-        const center = Math.min(canvasWidth, canvasHeight) / 2;
-        ctx.arc(canvasWidth / 2, canvasHeight / 2, center - 5, 0, Math.PI * 2)
+        // Use calculated dimensions for circle boundary to match pins
+        // Center is implied by canvas center if we use full width
+        ctx.arc(canvasWidth / 2, canvasHeight / 2, (Math.min(canvasWidth, canvasHeight) / 2) - 0.5, 0, Math.PI * 2)
     } else {
-        ctx.rect(1, 1, canvasWidth - 2, canvasHeight - 2)
+        ctx.rect(0, 0, canvasWidth, canvasHeight)
     }
     ctx.stroke()
 
@@ -974,8 +997,8 @@ ${result.lineSequence.join(', ')}`
       if (pin1 && pin2 && pin1[0] !== undefined && pin1[1] !== undefined) {
         ctx.beginPath()
         // Use separate scaling for X and Y to support tight rectangular cropping
-        ctx.moveTo(pin1[0] * scaleX, pin1[1] * scaleY)
-        ctx.lineTo(pin2[0] * scaleX, pin2[1] * scaleY)
+        ctx.moveTo(pin1[0] * scaleX + offsetX, pin1[1] * scaleY + offsetY)
+        ctx.lineTo(pin2[0] * scaleX + offsetX, pin2[1] * scaleY + offsetY)
         ctx.stroke()
       }
     }
@@ -985,7 +1008,7 @@ ${result.lineSequence.join(', ')}`
     pinCoordinates.forEach(([x, y]) => {
       if (x !== undefined && y !== undefined) {
         ctx.beginPath()
-        ctx.arc(x * scaleX, y * scaleY, 1.5, 0, Math.PI * 2)
+        ctx.arc(x * scaleX + offsetX, y * scaleY + offsetY, 1.5, 0, Math.PI * 2)
         ctx.fill()
       }
     })
