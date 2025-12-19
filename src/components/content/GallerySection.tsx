@@ -54,12 +54,40 @@ export function GallerySection() {
     // Lazy load gallery content
     const loadGalleryContent = async () => {
       try {
-        const response = await fetch(`${import.meta.env.BASE_URL}content/gallery/gallery.json`)
+        const baseUrl = import.meta.env.BASE_URL
+        const response = await fetch(`${baseUrl}content/gallery/gallery.json`)
         if (!response.ok) {
           throw new Error('Failed to load gallery content')
         }
         const data = await response.json()
-        setGalleryData(data)
+
+        // Process image paths to include BASE_URL
+        // The regex checks if path starts with '/', and we replace it with `baseUrl` (which often ends with '/')
+        // We ensure we don't end up with double slashes if baseUrl has one and path has one.
+        const processPath = (path: string) => {
+          if (path.startsWith('http')) return path
+
+          // Clean base URL to remove trailing slash for joining
+          const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+          // Clean path to ensure leading slash
+          const cleanPath = path.startsWith('/') ? path : `/${path}`
+
+          return `${cleanBase}${cleanPath}`
+        }
+
+        const processedData: GalleryData = {
+          ...data,
+          categories: data.categories.map((category: GalleryCategory) => ({
+            ...category,
+            examples: category.examples.map((example: GalleryExample) => ({
+              ...example,
+              originalImage: processPath(example.originalImage),
+              stringArtImage: processPath(example.stringArtImage)
+            }))
+          }))
+        }
+
+        setGalleryData(processedData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load gallery')
         console.error('Gallery loading error:', err)
