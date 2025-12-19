@@ -1,0 +1,58 @@
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        if: github.event.action != 'closed'
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: github.event.action != 'closed'
+        run: npm ci
+
+      - name: Setup Pages
+        id: pages
+        if: github.event.action != 'closed'
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+
+      - name: Build
+        if: github.event.action != 'closed'
+        run: npm run build
+        env:
+          # Construct the base path.
+          # If pages.outputs.base_path is empty (e.g. user site), we use /pr-preview/pr-N/
+          # If pages.outputs.base_path is /repo (project site), we use /repo/pr-preview/pr-N/
+          BASE_PATH: ${{ steps.pages.outputs.base_path || '' }}/pr-preview/pr-${{ github.event.number }}/
+
+      - name: Deploy Preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          umbrella-dir: pr-preview
