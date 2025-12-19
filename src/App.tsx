@@ -365,8 +365,9 @@ function App() {
             }
         }
 
-        const scaleX = contentW / pixelW;
-        const scaleY = contentH / pixelH;
+        // Fix scaling for rectangular shape to ensure pins hit the edges
+        const scaleX = contentW / (result.parameters.shape === 'rectangle' ? (pixelW - 1) : pixelW);
+        const scaleY = contentH / (result.parameters.shape === 'rectangle' ? (pixelH - 1) : pixelH);
 
         // To center it:
         const startX = cx - (contentW / 2);
@@ -603,8 +604,9 @@ function App() {
         }
     }
 
-    const scaleX = contentW / pixelW;
-    const scaleY = contentH / pixelH;
+    // Fix scaling for rectangular shape to ensure pins hit the edges
+    const scaleX = contentW / (result.parameters.shape === 'rectangle' ? (pixelW - 1) : pixelW);
+    const scaleY = contentH / (result.parameters.shape === 'rectangle' ? (pixelH - 1) : pixelH);
 
     const startX = cx - (contentW / 2);
     const startY = cy - (contentH / 2);
