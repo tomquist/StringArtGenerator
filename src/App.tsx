@@ -97,6 +97,42 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [initialStep, setInitialStep] = useState(0)
 
+  // Helper to load sequence data into a synthetic result
+  const loadSequenceData = (sequence: number[], decodedPins: number, step?: number) => {
+      // Construct synthetic result
+      const syntheticResult: StringArtResult = {
+        lineSequence: sequence,
+        pinCoordinates: Array.from({ length: decodedPins }, (_, i) => {
+           // Generic circle coordinates (normalized to -0.5 to 0.5 range roughly)
+           const angle = (2 * Math.PI * i) / decodedPins;
+           return [Math.cos(angle) * 250 + 250, Math.sin(angle) * 250 + 250];
+        }),
+        totalThreadLength: 0, // Unknown without physics
+        parameters: {
+          shape: 'circle',
+          numberOfPins: decodedPins,
+          numberOfLines: sequence.length,
+          lineWeight: 20,
+          minDistance: 0,
+          imgSize: 500,
+          scale: 1,
+          hoopDiameter: 500
+        },
+        processingTimeMs: 0
+      };
+
+      setResult(syntheticResult);
+      setNumberOfPins(decodedPins);
+      if (step !== undefined) {
+        setInitialStep(step);
+      }
+
+      // Scroll to player
+      setTimeout(() => {
+        document.getElementById('pin-sequence-player')?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+  };
+
   // URL State Handling
   useEffect(() => {
     const checkUrlParams = async () => {
@@ -107,40 +143,7 @@ function App() {
       if (encodedSeq) {
         try {
           const { sequence, numberOfPins: decodedPins } = await decompressSequence(encodedSeq);
-
-          // Construct synthetic result
-          const syntheticResult: StringArtResult = {
-            lineSequence: sequence,
-            pinCoordinates: Array.from({ length: decodedPins }, (_, i) => {
-               // Generic circle coordinates (normalized to -0.5 to 0.5 range roughly)
-               const angle = (2 * Math.PI * i) / decodedPins;
-               return [Math.cos(angle) * 250 + 250, Math.sin(angle) * 250 + 250];
-            }),
-            totalThreadLength: 0, // Unknown without physics
-            parameters: {
-              shape: 'circle',
-              numberOfPins: decodedPins,
-              numberOfLines: sequence.length,
-              lineWeight: 20,
-              minDistance: 0,
-              imgSize: 500,
-              scale: 1,
-              hoopDiameter: 500
-            },
-            processingTimeMs: 0
-          };
-
-          setResult(syntheticResult);
-          setNumberOfPins(decodedPins);
-          if (step) {
-            setInitialStep(parseInt(step, 10));
-          }
-
-          // Scroll to result
-          setTimeout(() => {
-            document.getElementById('string-art-result')?.scrollIntoView({ behavior: 'smooth' });
-          }, 500);
-
+          loadSequenceData(sequence, decodedPins, step ? parseInt(step, 10) : 0);
         } catch (e) {
           console.error('Failed to load sequence from URL', e);
           setError('Failed to load saved sequence.');
@@ -150,6 +153,24 @@ function App() {
 
     checkUrlParams();
   }, []);
+
+  const [importString, setImportString] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleImportString = async () => {
+    if (!importString) return;
+    setIsImporting(true);
+    try {
+      const { sequence, numberOfPins: decodedPins } = await decompressSequence(importString);
+      loadSequenceData(sequence, decodedPins, 0);
+      setImportString('');
+    } catch (e) {
+      console.error(e);
+      setError('Invalid sequence string.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
   
   // UI State
   const [selectedPreset, setSelectedPreset] = useState<string>('fine')
@@ -1214,6 +1235,54 @@ ${result.lineSequence.join(', ')}`
             </CardContent>
           </Card>
 
+          {/* Pin Sequence Player Card (Always Visible) */}
+          <div id="pin-sequence-player">
+            {result ? (
+               <PinSequencePlayer
+                 sequence={result.lineSequence}
+                 numberOfPins={result.parameters.numberOfPins}
+                 initialStep={initialStep}
+                 onReset={() => {
+                   setResult(null);
+                   setInitialStep(0);
+                   // Clear URL params
+                   const url = new URL(window.location.href);
+                   url.searchParams.delete('seq');
+                   url.searchParams.delete('step');
+                   window.history.replaceState({}, '', url.toString());
+                 }}
+               />
+            ) : (
+              <Card className="card-hover border-2 mb-8">
+                <CardHeader className="pb-4">
+                  <h3 className="text-heading-md font-semibold flex items-center gap-2">
+                    <span>🎧</span> Hands-free Player
+                  </h3>
+                  <p className="text-body-sm text-subtle">
+                    Import a saved pin sequence to start the audio guide without generating a new image.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <textarea
+                      className="w-full h-24 p-3 text-xs font-mono border rounded bg-background resize-none"
+                      placeholder="Paste compressed sequence string here..."
+                      value={importString}
+                      onChange={(e) => setImportString(e.target.value)}
+                    />
+                    <Button
+                      onClick={handleImportString}
+                      disabled={!importString || isImporting}
+                      className="w-full"
+                    >
+                      {isImporting ? 'Loading...' : 'Load Sequence'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
           {/* Preset Selection */}
           <div className={!selectedImage ? "opacity-50" : ""}>
             {/* Shape & Dimension Selection (Moved to top) */}
@@ -1615,11 +1684,6 @@ ${result.lineSequence.join(', ')}`
                         </Button>
                       </div>
 
-                      <PinSequencePlayer
-                        sequence={result.lineSequence}
-                        numberOfPins={result.parameters.numberOfPins}
-                        initialStep={initialStep}
-                      />
                     </div>
                   )}
                 </div>

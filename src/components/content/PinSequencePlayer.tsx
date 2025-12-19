@@ -8,12 +8,14 @@ interface PinSequencePlayerProps {
   sequence: number[];
   numberOfPins: number;
   initialStep?: number;
+  onReset?: () => void;
 }
 
 export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   sequence,
   numberOfPins,
-  initialStep = 0
+  initialStep = 0,
+  onReset
 }) => {
   // State
   const [currentStep, setCurrentStep] = useState(initialStep);
@@ -24,6 +26,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exportedString, setExportedString] = useState('');
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -70,6 +74,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     return () => clearTimeout(timer);
   }, [currentStep, sequence, numberOfPins]);
 
+  // Generate exported string
+  useEffect(() => {
+    if (showExport && !exportedString) {
+      compressSequence(sequence, numberOfPins).then(setExportedString);
+    }
+  }, [showExport, sequence, numberOfPins, exportedString]);
+
   // Playback Logic
   const speakPin = (pinIndex: number) => {
     window.speechSynthesis.cancel();
@@ -107,18 +118,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
-  // Effect to trigger speech when step changes AND playing
-  // But wait, if we change step manually, we might not want to speak immediately unless playing?
-  // Actually, standard players usually don't speak on manual seek unless requested.
-  // BUT the requirement is "reads out loud... in the right order".
-  // If I press Next, it should probably speak.
-  // Let's modify: separate the "speak" trigger.
-
-  // Revised Playback Logic:
-  // We use an effect that watches `currentStep`. If `isPlaying` is true, we speak.
-  // If we just seek, we don't necessarily speak, unless we want to confirm the position.
-  // User "can enter their current position... even while it's playing".
-
   useEffect(() => {
     if (isPlaying) {
       speakPin(currentStep);
@@ -129,9 +128,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, isPlaying]);
-  // We don't include selectedVoice/speed here to avoid restarting current speech mid-utterance unexpectedly,
-  // though typically you might want real-time update.
-  // For simplicity, speed/voice changes apply to NEXT utterance.
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -144,7 +140,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       if (currentStep >= sequence.length - 1) {
         setCurrentStep(0);
       } else {
-        // Trigger the effect
         speakPin(currentStep);
       }
     }
@@ -153,17 +148,21 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const handleNext = () => {
     if (currentStep < sequence.length - 1) {
       setCurrentStep(prev => prev + 1);
-      // If paused, maybe read the new pin once?
-      if (!isPlaying) {
-        // Optional: read single pin on manual navigation
-        // speakPin(currentStep + 1); // This would conflict with effect if we enabled it for all changes
-      }
     }
   };
 
   const handlePrev = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const handleStepInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val)) {
+      // 1-based input, 0-based index
+      const newIndex = Math.max(0, Math.min(sequence.length - 1, val - 1));
+      setCurrentStep(newIndex);
     }
   };
 
@@ -182,7 +181,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     // Find occurrences
     const matches: number[] = [];
 
-    // Naive search is O(N*M), fine for N=4000
     for (let i = 0; i <= sequence.length - searchNums.length; i++) {
       let match = true;
       for (let j = 0; j < searchNums.length; j++) {
@@ -199,35 +197,39 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     } else if (matches.length > 1) {
       setSearchMessage(`Found ${matches.length} matches. Add more pins to narrow down.`);
     } else {
-      // Unique match!
       setSearchMessage(`Found unique match at step ${matches[0] + 1}. Jumping...`);
-      setCurrentStep(matches[0] + searchNums.length - 1); // Jump to the LAST pin in the sequence entered? Or the start?
-      // "The user can enter their current position" -> usually means "I just did pin X, Y, Z".
-      // So we should be at Z (ready for next).
-      // So matches[0] + searchNums.length - 1 is the index of the last entered pin.
-      // The player should probably be ready to play the *next* one?
-      // Or if the player plays the *current* step, then we set it to matches[0] + searchNums.length - 1
-      // and let it play that (re-confirming) or just wait.
-      // Let's set it to the last matched pin index.
+      setCurrentStep(matches[0] + searchNums.length - 1);
     }
   };
 
   const copyShareLink = () => {
-    // The URL is already updated by the effect
     navigator.clipboard.writeText(window.location.href);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const copyExportString = () => {
+    navigator.clipboard.writeText(exportedString);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
 
   return (
     <Card className="card-hover border-2 mt-8">
-      <CardHeader className="pb-4">
-        <h3 className="text-heading-md font-semibold flex items-center gap-2">
-          <span>🎧</span> Hands-free Player
-        </h3>
-        <p className="text-body-sm text-subtle">
-          Audio guide for your pin sequence. Bookmark this page to resume later.
-        </p>
+      <CardHeader className="pb-4 flex flex-row items-center justify-between">
+        <div className="flex flex-col">
+          <h3 className="text-heading-md font-semibold flex items-center gap-2">
+            <span>🎧</span> Hands-free Player
+          </h3>
+          <p className="text-body-sm text-subtle">
+            Audio guide for your pin sequence.
+          </p>
+        </div>
+        {onReset && (
+           <Button variant="ghost" size="sm" onClick={onReset} className="text-subtle hover:text-destructive">
+             Load Different Sequence
+           </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Main Display */}
@@ -235,8 +237,17 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           <div className="text-display-sm font-bold text-primary">
             {sequence[currentStep]}
           </div>
-          <div className="text-body-sm text-subtle mt-1">
-            Step {currentStep + 1} / {sequence.length}
+          <div className="flex items-center gap-2 mt-1">
+             <span className="text-body-sm text-subtle">Step</span>
+             <input
+               type="number"
+               className="w-16 p-1 text-center rounded border border-input bg-background text-sm font-medium"
+               value={currentStep + 1}
+               onChange={handleStepInput}
+               min={1}
+               max={sequence.length}
+             />
+             <span className="text-body-sm text-subtle">/ {sequence.length}</span>
           </div>
 
            {/* Progress Bar Visual */}
@@ -320,11 +331,30 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           )}
         </div>
 
-        {/* Share */}
-        <div className="pt-2">
+        {/* Share & Export */}
+        <div className="pt-2 space-y-2">
            <Button variant="outline" className="w-full" onClick={copyShareLink}>
-             {isCopied ? '✅ Link Copied!' : '🔗 Copy Share Link'}
+             {isCopied && !showExport ? '✅ Link Copied!' : '🔗 Copy Share Link'}
            </Button>
+
+           <Button variant="ghost" className="w-full text-xs text-subtle" onClick={() => setShowExport(!showExport)}>
+             {showExport ? 'Hide Export Options' : 'Show Export Options'}
+           </Button>
+
+           {showExport && (
+             <div className="space-y-2 p-3 bg-muted/30 rounded-md animate-in fade-in zoom-in-95 duration-200">
+                <label className="text-xs font-medium">Compressed Sequence String</label>
+                <textarea
+                  readOnly
+                  value={exportedString}
+                  className="w-full h-24 p-2 text-xs font-mono border rounded bg-background resize-none"
+                  onClick={(e) => e.currentTarget.select()}
+                />
+                <Button size="sm" className="w-full" onClick={copyExportString}>
+                   {isCopied ? '✅ String Copied!' : '📋 Copy String'}
+                </Button>
+             </div>
+           )}
         </div>
 
       </CardContent>
