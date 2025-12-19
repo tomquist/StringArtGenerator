@@ -11,6 +11,22 @@ import { getValidTargetPins } from './pinCalculation';
 import { DEFAULT_CONFIG } from '../utils/constants';
 
 /**
+ * Calculate the effective pixel width based on parameters
+ * Handles rectangle aspect ratio mapping
+ */
+export function calculateEffectiveWidth(params: StringArtParameters): number {
+  if (params.shape === 'rectangle' && params.width && params.height) {
+    const aspectRatio = params.width / params.height;
+    if (aspectRatio >= 1) {
+      return params.imgSize;
+    } else {
+      return Math.max(1, Math.round(params.imgSize * aspectRatio));
+    }
+  }
+  return params.imgSize;
+}
+
+/**
  * Precalculate all possible lines between pins for optimization
  * Extracted from NonBlockingPrecalculateLines function
  */
@@ -132,26 +148,7 @@ export function findBestNextPin(
     const ys = lineCache.y[cacheIndex];
 
     if (xs && ys) {
-      // Use dimensions.width if available, else imgSize (fallback for backward compatibility/square)
-      // Note: errorMatrix is flattened using a specific width.
-      // createErrorMatrix takes processedImageData which is flattened.
-      // But we need to know the ROW STRIDE (width) to access pixel (x, y).
-
-      // Assuming params.imgSize is the width for square images.
-      // If rectangular, we need the actual pixel width.
-
-      // Calculate effective width.
-      let effectiveWidth = params.imgSize;
-      if (params.shape === 'rectangle' && params.width && params.height) {
-         // Determine pixel width logic matches pinCalculation logic
-         const aspectRatio = params.width / params.height;
-         if (aspectRatio >= 1) {
-             effectiveWidth = params.imgSize;
-         } else {
-             effectiveWidth = Math.round(params.imgSize * aspectRatio);
-             effectiveWidth = Math.max(1, effectiveWidth);
-         }
-      }
+      const effectiveWidth = calculateEffectiveWidth(params);
 
       const lineError = calculateLineError(
         errorMatrix,
@@ -191,16 +188,7 @@ export async function optimizeStringArt(
   lineSequence.push(currentPin);
 
   // Determine effective width for index calculations
-  let effectiveWidth = params.imgSize;
-  if (params.shape === 'rectangle' && params.width && params.height) {
-      const aspectRatio = params.width / params.height;
-      if (aspectRatio >= 1) {
-          effectiveWidth = params.imgSize;
-      } else {
-          effectiveWidth = Math.round(params.imgSize * aspectRatio);
-          effectiveWidth = Math.max(1, effectiveWidth);
-      }
-  }
+  const effectiveWidth = calculateEffectiveWidth(params);
 
   // Calculate physical perimeter for thread length scaling
   // hoopDiameter usually means max physical dimension in this context?
