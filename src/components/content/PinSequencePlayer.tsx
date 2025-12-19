@@ -11,6 +11,13 @@ interface PinSequencePlayerProps {
   onReset?: () => void;
 }
 
+// Helper to format remaining time
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}m ${secs}s`;
+}
+
 export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   sequence,
   numberOfPins,
@@ -32,6 +39,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Constants for estimation
+  const BASE_TIME_PER_PIN = 2.5; // seconds (utterance + delay) at 1x speed
 
   // Initialize Voices
   useEffect(() => {
@@ -214,6 +224,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // Calculate remaining time
+  const remainingSteps = sequence.length - currentStep - 1;
+  const estimatedSeconds = Math.max(0, remainingSteps * (BASE_TIME_PER_PIN / speed));
+
   return (
     <Card className="card-hover border-2 mt-8">
       <CardHeader className="pb-4 flex flex-row items-center justify-between">
@@ -248,6 +262,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                max={sequence.length}
              />
              <span className="text-body-sm text-subtle">/ {sequence.length}</span>
+          </div>
+          <div className="text-xs text-subtle mt-1">
+             Est. remaining: {formatTime(estimatedSeconds)}
           </div>
 
            {/* Progress Bar Visual */}
@@ -285,9 +302,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              <label className="text-sm font-medium">Speed: {speed}x</label>
              <input
                type="range"
-               min="0.5"
+               min="0.2"
                max="3"
-               step="0.25"
+               step="0.1"
                value={speed}
                onChange={(e) => setSpeed(parseFloat(e.target.value))}
                className="w-full"
