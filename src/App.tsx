@@ -5,6 +5,8 @@ import type { StringArtResult, OptimizationProgress, StringArtShape } from './ty
 import { useMobileCanvas } from './hooks/useMobileCanvas'
 import { MobileSlider } from './components/ui/mobile-slider'
 import { YarnParameters } from './components/forms/yarn-parameters'
+import { PinSequencePlayer } from './components/content/PinSequencePlayer'
+import { decompressSequence } from './lib/utils/sequenceCompression'
 import type { YarnSpec } from './types/yarn'
 
 // Layout Components
@@ -93,6 +95,61 @@ function App() {
   const [result, setResult] = useState<StringArtResult | null>(null)
   const [progress, setProgress] = useState<OptimizationProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [initialStep, setInitialStep] = useState(0)
+
+  // URL State Handling
+  useEffect(() => {
+    const checkUrlParams = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const encodedSeq = params.get('seq');
+      const step = params.get('step');
+
+      if (encodedSeq) {
+        try {
+          const { sequence, numberOfPins: decodedPins } = await decompressSequence(encodedSeq);
+
+          // Construct synthetic result
+          const syntheticResult: StringArtResult = {
+            lineSequence: sequence,
+            pinCoordinates: Array.from({ length: decodedPins }, (_, i) => {
+               // Generic circle coordinates (normalized to -0.5 to 0.5 range roughly)
+               const angle = (2 * Math.PI * i) / decodedPins;
+               return [Math.cos(angle) * 250 + 250, Math.sin(angle) * 250 + 250];
+            }),
+            totalThreadLength: 0, // Unknown without physics
+            parameters: {
+              shape: 'circle',
+              numberOfPins: decodedPins,
+              numberOfLines: sequence.length,
+              lineWeight: 20,
+              minDistance: 0,
+              imgSize: 500,
+              scale: 1,
+              hoopDiameter: 500
+            },
+            processingTimeMs: 0
+          };
+
+          setResult(syntheticResult);
+          setNumberOfPins(decodedPins);
+          if (step) {
+            setInitialStep(parseInt(step, 10));
+          }
+
+          // Scroll to result
+          setTimeout(() => {
+            document.getElementById('string-art-result')?.scrollIntoView({ behavior: 'smooth' });
+          }, 500);
+
+        } catch (e) {
+          console.error('Failed to load sequence from URL', e);
+          setError('Failed to load saved sequence.');
+        }
+      }
+    };
+
+    checkUrlParams();
+  }, []);
   
   // UI State
   const [selectedPreset, setSelectedPreset] = useState<string>('fine')
@@ -1557,6 +1614,12 @@ ${result.lineSequence.join(', ')}`
                           Create New
                         </Button>
                       </div>
+
+                      <PinSequencePlayer
+                        sequence={result.lineSequence}
+                        numberOfPins={result.parameters.numberOfPins}
+                        initialStep={initialStep}
+                      />
                     </div>
                   )}
                 </div>
