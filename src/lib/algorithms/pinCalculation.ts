@@ -107,10 +107,8 @@ export function calculateRectangularPins(params: Partial<StringArtParameters>): 
   pinsH = Math.max(1, baseH);
 
   // Calculate exact coordinates
-  // Top side: (0,0) to (W, 0). pinsW intervals.
-  // Right side: (W, 0) to (W, H). pinsH intervals.
-  // Bottom side: (W, H) to (0, H). pinsW intervals.
-  // Left side: (0, H) to (0, 0). pinsH intervals.
+  // Use horizontal loops to include both corners (t=0 to t=1)
+  // Use vertical loops to generate only strictly interior points to avoid duplicate corners
 
   const coords: PinCoordinate[] = [];
 
@@ -118,26 +116,30 @@ export function calculateRectangularPins(params: Partial<StringArtParameters>): 
   const maxX = pixelWidth - 1;
   const maxY = pixelHeight - 1;
 
-  // Top: Left to Right (excluding last point which is start of Right)
-  for (let i = 0; i < pinsW; i++) {
+  // Top: Left to Right (Include both TL and TR corners)
+  // pinsW represents the number of segments on the width.
+  // Iterating 0 to pinsW includes pinsW + 1 points (endpoints).
+  for (let i = 0; i <= pinsW; i++) {
     const t = i / pinsW;
     coords.push([Math.round(t * maxX), 0]);
   }
 
-  // Right: Top to Bottom
-  for (let i = 0; i < pinsH; i++) {
+  // Right: Top to Bottom (Skip corners TR and BR)
+  // pinsH represents the number of segments on the height.
+  // Iterate 1 to pinsH-1 to generate interior points.
+  for (let i = 1; i < pinsH; i++) {
     const t = i / pinsH;
     coords.push([maxX, Math.round(t * maxY)]);
   }
 
-  // Bottom: Right to Left
-  for (let i = 0; i < pinsW; i++) {
+  // Bottom: Right to Left (Include both BR and BL corners)
+  for (let i = 0; i <= pinsW; i++) {
     const t = i / pinsW;
     coords.push([Math.round((1 - t) * maxX), maxY]);
   }
 
-  // Left: Bottom to Top
-  for (let i = 0; i < pinsH; i++) {
+  // Left: Bottom to Top (Skip corners BL and TL)
+  for (let i = 1; i < pinsH; i++) {
     const t = i / pinsH;
     coords.push([0, Math.round((1 - t) * maxY)]);
   }
