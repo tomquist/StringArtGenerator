@@ -66,36 +66,6 @@ export default defineConfig({
     // Optimize chunks for better loading and caching
     rollupOptions: {
       output: {
-        // Advanced code splitting strategy
-        manualChunks: (id) => {
-          // Vendor chunks
-          if (id.includes('node_modules')) {
-            // React core
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor'
-            }
-            // UI library
-            if (id.includes('@radix-ui') || id.includes('lucide-react')) {
-              return 'ui-vendor'
-            }
-            // Other vendor libraries
-            if (id.includes('framer-motion')) {
-              return 'animation-vendor'
-            }
-            return 'vendor'
-          }
-          
-          // App-specific chunks
-          if (id.includes('src/lib/algorithms')) {
-            return 'algorithms' // Lazy load heavy string art algorithms
-          }
-          if (id.includes('src/components/content')) {
-            return 'content' // Lazy load content components
-          }
-          if (id.includes('src/components/ui')) {
-            return 'ui-components'
-          }
-        },
         // Optimize asset naming for better caching
         assetFileNames: (assetInfo) => {
           const fileName = assetInfo.names?.[0] || 'asset'
