@@ -133,33 +133,38 @@ export async function prerender(data: { url: string }) {
       description: 'Transform photos into stunning string art using advanced algorithms. Generate mathematical patterns with customizable pins and lines for physical artwork.',
       keywords: 'string art generator, free online tool, photo to string art, mathematical art, DIY string art'
     },
-    '/#tutorial': {
+    '#tutorial': {
       title: 'String Art Tutorial - Step by Step Guide | String Art Generator',
       description: 'Learn how to create mathematical string art with our comprehensive tutorial. Step-by-step instructions for transforming photos into beautiful string art patterns.',
       keywords: 'string art tutorial, how to make string art, string art guide, mathematical art tutorial'
     },
-    '/#faq': {
+    '#faq': {
       title: 'String Art Generator FAQ - Frequently Asked Questions',
       description: 'Find answers to common questions about string art generation, including tips for best images, pin configurations, and troubleshooting guidance.',
       keywords: 'string art FAQ, string art questions, string art help, string art troubleshooting'
     },
-    '/#gallery': {
+    '#gallery': {
       title: 'String Art Gallery - Examples and Inspiration | String Art Generator',
       description: 'Explore stunning string art examples and gallery of mathematical art creations. Get inspired by algorithmic string art patterns and designs.',
       keywords: 'string art gallery, string art examples, mathematical art gallery, algorithmic art inspiration'
     },
-    '/#generator': {
+    '#generator': {
       title: 'String Art Generator Tool - Create Mathematical String Art Online',
       description: 'Use our advanced string art generator tool to convert your photos into mathematical string art patterns. Free online tool with customizable settings.',
       keywords: 'string art generator tool, online string art creator, photo to string art converter'
     }
   }
   
-  const config = routeConfig[url as keyof typeof routeConfig] || routeConfig['/']
+  // Normalize url to relative hash if needed
+  const normalizedUrl = url.startsWith('/') && url.length > 1 && url.includes('#')
+    ? url.substring(1) // remove leading slash for hash routes
+    : url;
+
+  const config = routeConfig[normalizedUrl as keyof typeof routeConfig] || routeConfig['/']
   
   return {
     html: generateHTML(),
-    links: new Set(['/', '/#tutorial', '/#faq', '/#gallery', '/#generator']),
+    links: new Set(['/', '#tutorial', '#faq', '#gallery', '#generator']),
     head: {
       lang: 'en',
       title: config.title,
@@ -209,7 +214,7 @@ export async function prerender(data: { url: string }) {
           `
         },
         // Schema.org structured data for FAQ pages
-        ...(url === '/#faq' ? [{
+        ...(normalizedUrl === '#faq' ? [{
           type: 'script',
           props: { type: 'application/ld+json' },
           content: JSON.stringify({
@@ -226,7 +231,7 @@ export async function prerender(data: { url: string }) {
           })
         }] : []),
         // Schema.org structured data for tutorial pages
-        ...(url === '/#tutorial' ? [{
+        ...(normalizedUrl === '#tutorial' ? [{
           type: 'script',
           props: { type: 'application/ld+json' },
           content: JSON.stringify({

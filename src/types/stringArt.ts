@@ -9,16 +9,21 @@ export type Point = {
 
 export type PinCoordinate = [number, number];
 
+export type StringArtShape = 'circle' | 'rectangle';
+
 import type { YarnSpec } from './yarn';
 
 export type StringArtParameters = {
+  shape: StringArtShape;
   numberOfPins: number;
   numberOfLines: number;
   lineWeight: number;
   minDistance: number;
   imgSize: number;
   scale: number;
-  hoopDiameter: number;
+  hoopDiameter: number; // Kept for backward compatibility (circle diameter)
+  width?: number;       // Physical width in mm (for rectangle)
+  height?: number;      // Physical height in mm (for rectangle)
   yarnSpec?: YarnSpec;
 };
 

@@ -24,6 +24,7 @@ export async function generateStringArt(
   let lineWeight = params.lineWeight ?? DEFAULT_CONFIG.LINE_WEIGHT;
   if (params.yarnSpec) {
     const threadThicknessMM = calculateThreadThicknessMM(params.yarnSpec);
+    // Use hoopDiameter or width (max dimension) for scale
     const hoopDiameter = params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4);
     const imgSize = params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE;
     lineWeight = calculateLineWeight(threadThicknessMM, hoopDiameter, imgSize);
@@ -31,6 +32,7 @@ export async function generateStringArt(
 
   // Merge with default parameters
   const parameters: StringArtParameters = {
+    shape: params.shape ?? 'circle',
     numberOfPins: params.numberOfPins ?? DEFAULT_CONFIG.N_PINS,
     numberOfLines: params.numberOfLines ?? DEFAULT_CONFIG.MAX_LINES,
     lineWeight: lineWeight,
@@ -38,12 +40,20 @@ export async function generateStringArt(
     imgSize: params.imgSize ?? DEFAULT_CONFIG.IMG_SIZE,
     scale: params.scale ?? DEFAULT_CONFIG.SCALE,
     hoopDiameter: params.hoopDiameter ?? (DEFAULT_CONFIG.HOOP_DIAMETER * 25.4),
+    width: params.width ?? 100,
+    height: params.height ?? 100,
     yarnSpec: params.yarnSpec,
   };
 
   // Step 1: Process the image
   console.log('Processing image...');
-  const processedImageData = processImageForStringArt(imageElement, parameters.imgSize);
+  const processedImageData = processImageForStringArt(
+    imageElement,
+    parameters.imgSize,
+    parameters.shape,
+    parameters.width,
+    parameters.height
+  );
   
   // Step 2: Calculate pin positions
   console.log('Calculating pin positions...');
@@ -55,12 +65,16 @@ export async function generateStringArt(
 
   // Step 4: Create error matrix from processed image
   console.log('Creating error matrix...');
+
+  // Convert processed image to flattened array for optimization
+  // createErrorMatrix accepts any 1D array length (supporting both square and rectangular images)
   const imageArray = imageDataToFlatArray({
     data: processedImageData.circularMaskedImage.data,
     width: processedImageData.circularMaskedImage.width,
     height: processedImageData.circularMaskedImage.height,
   } as ImageData);
-  const errorMatrix = createErrorMatrix(imageArray, parameters.imgSize);
+
+  const errorMatrix = createErrorMatrix(imageArray);
 
   // Step 5: Optimize string art
   console.log('Optimizing string art...');
@@ -131,6 +145,7 @@ export function validateStringArtParameters(params: Partial<StringArtParameters>
  */
 export function createDefaultParameters(overrides: Partial<StringArtParameters> = {}): StringArtParameters {
   const defaults: StringArtParameters = {
+    shape: 'circle',
     numberOfPins: DEFAULT_CONFIG.N_PINS,
     numberOfLines: DEFAULT_CONFIG.MAX_LINES,
     lineWeight: DEFAULT_CONFIG.LINE_WEIGHT,

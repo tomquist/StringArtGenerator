@@ -27,6 +27,7 @@ export type {
 export type {
   Point,
   PinCoordinate,
+  StringArtShape,
   StringArtParameters,
   LineCache,
   OptimizationState,

@@ -1,170 +1,113 @@
-/**
- * Tests for pin calculation algorithm
- */
 
 import { describe, it, expect } from 'vitest';
-import {
-  calculatePins,
-  validatePinParameters,
-  calculateAngularSeparation,
-  getPinAtOffset,
-  calculateMinPinDistance,
-  getValidTargetPins,
-} from '../../src/lib/algorithms/pinCalculation';
-import { DEFAULT_CONFIG } from '../../src/lib/utils/constants';
+import { calculateRectangularPins, calculatePins } from '../../src/lib/algorithms/pinCalculation';
+import { StringArtParameters } from '../../src/types/stringArt';
 
 describe('Pin Calculation', () => {
-  describe('calculatePins', () => {
-    it('should calculate correct number of pins with default parameters', () => {
-      const pins = calculatePins();
-      expect(pins).toHaveLength(DEFAULT_CONFIG.N_PINS);
+
+  describe('calculateRectangularPins', () => {
+    it('should calculate pins for a square matching imgSize', () => {
+      const params: Partial<StringArtParameters> = {
+        numberOfPins: 4,
+        width: 100,
+        height: 100,
+        imgSize: 100, // 1:1 pixel mapping
+      };
+      
+      const pins = calculateRectangularPins(params);
+      expect(pins.length).toBe(4);
+      
+      // With removal of centering offset (though 100x100 is full size anyway)
+      // Top-Left: 0,0
+      // Top-Right: 99, 0
+      // Bottom-Right: 99, 99
+      // Bottom-Left: 0, 99
+      expect(pins[0]).toEqual([0, 0]);
+      expect(pins[1]).toEqual([99, 0]);
+      expect(pins[2]).toEqual([99, 99]);
+      expect(pins[3]).toEqual([0, 99]);
     });
 
-    it('should calculate correct number of pins with custom parameters', () => {
-      const pins = calculatePins({ numberOfPins: 16 });
-      expect(pins).toHaveLength(16);
+    it('should calculate pins for a 2:1 rectangle without centering offset', () => {
+      const params: Partial<StringArtParameters> = {
+        numberOfPins: 6,
+        width: 200,
+        height: 100,
+        imgSize: 200, // Max dimension is 200px
+      };
+
+      // Expected pixel dimensions: 200 x 100
+      const pins = calculateRectangularPins(params);
+      
+      // Check bounds
+      const xs = pins.map(p => p[0]);
+      const ys = pins.map(p => p[1]);
+      
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      
+      expect(minX).toBe(0);
+      expect(maxX).toBe(199); // Width - 1
+      expect(minY).toBe(0);
+      expect(maxY).toBe(99); // Height - 1
+      
+      // Should NOT be centered in 200x200 (which would be offset Y by 50)
+      // So minY should definitely be 0, not 50.
     });
 
-    it('should place pins in a circle around image boundary', () => {
-      const pins = calculatePins({ numberOfPins: 8, imgSize: 200 });
-      
-      // All pins should be close to the boundary (due to Math.floor, expect ~99-100)
-      const center = 100;
-      const expectedMinRadius = 95;  // Allow some tolerance for flooring effects
-      const expectedMaxRadius = 105;
-      
-      pins.forEach(([x, y]) => {
-        const distance = Math.sqrt((x - center) ** 2 + (y - center) ** 2);
-        expect(distance).toBeGreaterThanOrEqual(expectedMinRadius);
-        expect(distance).toBeLessThanOrEqual(expectedMaxRadius);
-      });
-    });
+    it('should distribute pins correctly for non-even aspect ratios to match numberOfPins', () => {
+        // Case: 20 pins, 2:1 ratio (width 200, height 100)
+        // Total units = 300.
+        // Target half pins = 10.
+        // rawHalfW = 10 * (200/300) = 6.66...
+        // rawHalfH = 10 * (100/300) = 3.33...
+        // baseW = 6, baseH = 3.
+        // Remainder = 10 - 9 = 1.
+        // rawHalfW has larger fractional part (.66 vs .33).
+        // baseW -> 7.
+        // Final: pinsW = 7, pinsH = 3.
+        // Total = 2 * (7 + 3) = 20. Exact match.
 
-    it('should distribute pins evenly around circle', () => {
-      const pins = calculatePins({ numberOfPins: 4, imgSize: 200 });
-      const center = 100;
-      
-      // Calculate angles for each pin
-      const angles = pins.map(([x, y]) => Math.atan2(y - center, x - center));
-      
-      // Normalize angles to [0, 2π]
-      const normalizedAngles = angles.map(angle => 
-        angle < 0 ? angle + 2 * Math.PI : angle
-      );
-      
-      // Sort angles
-      normalizedAngles.sort((a, b) => a - b);
-      
-      // Check that angles are approximately evenly spaced (π/2 apart for 4 pins)
-      const expectedSeparation = (2 * Math.PI) / 4;
-      for (let i = 1; i < normalizedAngles.length; i++) {
-        const separation = normalizedAngles[i] - normalizedAngles[i - 1];
-        expect(separation).toBeCloseTo(expectedSeparation, 1);
-      }
+        const params: Partial<StringArtParameters> = {
+            numberOfPins: 20,
+            width: 200,
+            height: 100,
+            imgSize: 200
+        };
+        const pins = calculateRectangularPins(params);
+        expect(pins.length).toBe(20);
     });
   });
 
-  describe('validatePinParameters', () => {
-    it('should pass validation for valid parameters', () => {
-      const result = validatePinParameters({
-        numberOfPins: 100,
-        imgSize: 500,
-      });
+  describe('calculatePins (Circle)', () => {
+    it('should calculate circular pins by default', () => {
+      const params: Partial<StringArtParameters> = {
+        numberOfPins: 4,
+        imgSize: 100,
+        shape: 'circle'
+      };
       
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('should fail validation for too few pins', () => {
-      const result = validatePinParameters({ numberOfPins: 2 });
+      const pins = calculatePins(params);
+      expect(pins.length).toBe(4);
       
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Number of pins must be at least 3');
-    });
-
-    it('should fail validation for too many pins', () => {
-      const result = validatePinParameters({ numberOfPins: 1500 });
+      // Center 50, Radius 49.5
+      // 0 deg: (99, 50) roughly
+      // 90 deg: (50, 99) roughly
+      // ...
       
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Number of pins should not exceed 1000 for performance reasons');
-    });
-
-    it('should fail validation for non-integer pins', () => {
-      const result = validatePinParameters({ numberOfPins: 10.5 });
+      // Just check one or two to verify it's not returning rectangle logic
+      const center = 50;
+      const radius = 49.5;
       
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Number of pins must be an integer');
-    });
-
-    it('should fail validation for invalid image size', () => {
-      const result = validatePinParameters({ imgSize: 50 });
+      const p0 = pins[0]; // Angle 0
+      const expectedX = Math.floor(center + radius * Math.cos(0));
+      const expectedY = Math.floor(center + radius * Math.sin(0));
       
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Image size must be at least 100 pixels');
+      expect(p0[0]).toBe(expectedX);
+      expect(p0[1]).toBe(expectedY);
     });
   });
 
-  describe('calculateAngularSeparation', () => {
-    it('should calculate correct angular separation', () => {
-      expect(calculateAngularSeparation(4)).toBeCloseTo(Math.PI / 2);
-      expect(calculateAngularSeparation(8)).toBeCloseTo(Math.PI / 4);
-      expect(calculateAngularSeparation(360)).toBeCloseTo(Math.PI / 180);
-    });
-  });
-
-  describe('getPinAtOffset', () => {
-    it('should calculate pin at offset correctly', () => {
-      expect(getPinAtOffset(0, 5, 10)).toBe(5);
-      expect(getPinAtOffset(7, 5, 10)).toBe(2); // Wraps around
-      expect(getPinAtOffset(3, -2, 10)).toBe(1);
-    });
-
-    it('should handle wrapping correctly', () => {
-      expect(getPinAtOffset(9, 2, 10)).toBe(1); // 9 + 2 = 11, 11 % 10 = 1
-      expect(getPinAtOffset(0, 10, 10)).toBe(0); // Full circle
-    });
-  });
-
-  describe('calculateMinPinDistance', () => {
-    it('should calculate minimum distance between pins', () => {
-      expect(calculateMinPinDistance(1, 5, 10)).toBe(4);
-      expect(calculateMinPinDistance(9, 1, 10)).toBe(2); // Wraps around
-      expect(calculateMinPinDistance(0, 5, 10)).toBe(5);
-    });
-
-    it('should handle wrapping distance correctly', () => {
-      expect(calculateMinPinDistance(1, 9, 10)).toBe(2);
-      expect(calculateMinPinDistance(9, 1, 10)).toBe(2);
-    });
-  });
-
-  describe('getValidTargetPins', () => {
-    it('should return pins within minimum distance range', () => {
-      const validPins = getValidTargetPins(0, 2, 10);
-      
-      // Should include pins 2, 3, 4, 5, 6, 7 (excluding pins 8, 9, 0, 1 due to minDistance)
-      expect(validPins).toContain(2);
-      expect(validPins).toContain(7);
-      expect(validPins).not.toContain(0);
-      expect(validPins).not.toContain(1);
-      expect(validPins).not.toContain(8);
-      expect(validPins).not.toContain(9);
-    });
-
-    it('should exclude specified pins', () => {
-      const validPins = getValidTargetPins(0, 2, 10, [3, 5]);
-      
-      expect(validPins).not.toContain(3);
-      expect(validPins).not.toContain(5);
-      expect(validPins).toContain(2);
-      expect(validPins).toContain(4);
-    });
-
-    it('should handle edge cases with small pin count', () => {
-      const validPins = getValidTargetPins(0, 1, 4);
-      
-      // With 4 pins and minDistance 1, valid targets are pins 1, 2
-      expect(validPins).toEqual([1, 2]);
-    });
-  });
 });

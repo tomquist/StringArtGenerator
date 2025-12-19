@@ -11,6 +11,22 @@ import { getValidTargetPins } from './pinCalculation';
 import { DEFAULT_CONFIG } from '../utils/constants';
 
 /**
+ * Calculate the effective pixel width based on parameters
+ * Handles rectangle aspect ratio mapping
+ */
+export function calculateEffectiveWidth(params: StringArtParameters): number {
+  if (params.shape === 'rectangle' && params.width && params.height) {
+    const aspectRatio = params.width / params.height;
+    if (aspectRatio >= 1) {
+      return params.imgSize;
+    } else {
+      return Math.max(1, Math.round(params.imgSize * aspectRatio));
+    }
+  }
+  return params.imgSize;
+}
+
+/**
  * Precalculate all possible lines between pins for optimization
  * Extracted from NonBlockingPrecalculateLines function
  */
@@ -67,6 +83,9 @@ export function calculateLineError(
   let totalError = 0;
 
   for (let i = 0; i < xs.length; i++) {
+    // Ensure ys[i] and xs[i] are within bounds?
+    // Usually they are precalculated based on pins which are within bounds.
+    // However, if imgWidth is different (e.g. rectangular image), we need to ensure index calculation is correct.
     const pixelIndex = ys[i] * imgWidth + xs[i];
     if (pixelIndex >= 0 && pixelIndex < errorMatrix.length) {
       totalError += errorMatrix[pixelIndex];
@@ -129,10 +148,12 @@ export function findBestNextPin(
     const ys = lineCache.y[cacheIndex];
 
     if (xs && ys) {
+      const effectiveWidth = calculateEffectiveWidth(params);
+
       const lineError = calculateLineError(
         errorMatrix,
         { x: xs, y: ys },
-        params.imgSize
+        effectiveWidth
       ) * lineCache.weight[cacheIndex];
 
       if (lineError > maxError) {
@@ -166,6 +187,25 @@ export async function optimizeStringArt(
   
   lineSequence.push(currentPin);
 
+  // Determine effective width for index calculations
+  const effectiveWidth = calculateEffectiveWidth(params);
+
+  // Calculate physical perimeter for thread length scaling
+  // hoopDiameter usually means max physical dimension in this context?
+  // Thread length logic: distance (pixels) * (physical_size / pixel_size)
+  // For circle: distance * (hoopDiameter / imgSize)
+  // For rectangle: distance * (max_physical_dim / max_pixel_dim)
+  // Since imgSize = max_pixel_dim, and we should use max_physical_dim.
+  // params.hoopDiameter is treated as max physical dim in `generateStringArt`?
+  // Let's ensure we use consistent scaling factor.
+
+  let scaleFactor = params.hoopDiameter / params.imgSize;
+  if (params.shape === 'rectangle' && params.width && params.height) {
+      const maxPhysical = Math.max(params.width, params.height);
+      const maxPixel = params.imgSize; // Since imgSize is max dimension in our logic
+      scaleFactor = maxPhysical / maxPixel;
+  }
+
   for (let lineIndex = 0; lineIndex < params.numberOfLines; lineIndex++) {
     // Find best next pin
     const { bestPin } = findBestNextPin(
@@ -190,12 +230,12 @@ export async function optimizeStringArt(
     const ys = lineCache.y[cacheIndex];
 
     if (xs && ys) {
-      applyLineMask(errorMatrix, { x: xs, y: ys }, params.lineWeight, params.imgSize);
+      applyLineMask(errorMatrix, { x: xs, y: ys }, params.lineWeight, effectiveWidth);
     }
 
     // Calculate thread length
     const distance = calculatePinDistance(pinCoords[currentPin], pinCoords[bestPin]);
-    totalThreadLength += (params.hoopDiameter / params.imgSize) * distance;
+    totalThreadLength += distance * scaleFactor;
 
     // Update last pins (prevent immediate backtracking)
     lastPins.push(bestPin);
@@ -236,10 +276,10 @@ export async function optimizeStringArt(
  * Initialize error matrix from processed image data
  */
 export function createErrorMatrix(
-  processedImageData: Uint8Array,
-  imgSize: number
+  processedImageData: Uint8Array
 ): Float32Array {
-  const errorMatrix = new Float32Array(imgSize * imgSize);
+  // Use actual data length
+  const errorMatrix = new Float32Array(processedImageData.length);
   
   // Error = 255 - pixel_value (invert so darker pixels have higher error)
   for (let i = 0; i < processedImageData.length; i++) {
