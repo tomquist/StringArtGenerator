@@ -40,6 +40,34 @@ interface PresetConfig {
   }
 }
 
+// Helper to calculate pixel dimensions and scaling based on shape and target output size
+function calculateCoordinateMapping(
+  imgSize: number,
+  shape: StringArtShape,
+  width: number = 0,
+  height: number = 0,
+  targetWidth: number,
+  targetHeight: number
+) {
+  let pixelW = imgSize;
+  let pixelH = imgSize;
+
+  if (shape === 'rectangle' && width && height) {
+      const aspect = width / height;
+       if (aspect >= 1) {
+          pixelH = Math.round(imgSize / aspect);
+      } else {
+          pixelW = Math.round(imgSize * aspect);
+      }
+  }
+
+  // Fix scaling for rectangular shape to ensure pins hit the edges
+  const scaleX = targetWidth / (shape === 'rectangle' ? (pixelW - 1) : pixelW);
+  const scaleY = targetHeight / (shape === 'rectangle' ? (pixelH - 1) : pixelH);
+
+  return { pixelW, pixelH, scaleX, scaleY };
+}
+
 function App() {
   // Core State
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
@@ -345,29 +373,14 @@ function App() {
         const numPins = result.parameters.numberOfPins
 
         // We need to map pin coords (pixels) to physical page coords (mm)
-        // Scale factor: contentW (mm) / imgWidth (px)
-        // Wait, imgSize is max dimension.
-        // If rectangle, we need to handle aspect ratio correctly.
-        // Assuming pinCoords are in pixel space relative to imgSize.
-
-        // Calculate scale from pixels to mm
-        // We know contentW corresponds to the physical width.
-        // We need to know the pixel width used during generation.
-        let pixelW = result.parameters.imgSize;
-        let pixelH = result.parameters.imgSize;
-
-        if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
-            const aspect = result.parameters.width / result.parameters.height;
-             if (aspect >= 1) {
-                pixelH = Math.round(result.parameters.imgSize / aspect);
-            } else {
-                pixelW = Math.round(result.parameters.imgSize * aspect);
-            }
-        }
-
-        // Fix scaling for rectangular shape to ensure pins hit the edges
-        const scaleX = contentW / (result.parameters.shape === 'rectangle' ? (pixelW - 1) : pixelW);
-        const scaleY = contentH / (result.parameters.shape === 'rectangle' ? (pixelH - 1) : pixelH);
+        const { scaleX, scaleY } = calculateCoordinateMapping(
+          result.parameters.imgSize,
+          result.parameters.shape,
+          result.parameters.width,
+          result.parameters.height,
+          contentW,
+          contentH
+        );
 
         // To center it:
         const startX = cx - (contentW / 2);
@@ -593,20 +606,14 @@ function App() {
     const labelDist = 40
 
     // Calculate scale from pixels (imgSize) to Canvas
-    let pixelW = result.parameters.imgSize;
-    let pixelH = result.parameters.imgSize;
-    if (result.parameters.shape === 'rectangle' && result.parameters.width && result.parameters.height) {
-        const aspect = result.parameters.width / result.parameters.height;
-         if (aspect >= 1) {
-            pixelH = Math.round(result.parameters.imgSize / aspect);
-        } else {
-            pixelW = Math.round(result.parameters.imgSize * aspect);
-        }
-    }
-
-    // Fix scaling for rectangular shape to ensure pins hit the edges
-    const scaleX = contentW / (result.parameters.shape === 'rectangle' ? (pixelW - 1) : pixelW);
-    const scaleY = contentH / (result.parameters.shape === 'rectangle' ? (pixelH - 1) : pixelH);
+    const { scaleX, scaleY } = calculateCoordinateMapping(
+      result.parameters.imgSize,
+      result.parameters.shape,
+      result.parameters.width,
+      result.parameters.height,
+      contentW,
+      contentH
+    );
 
     const startX = cx - (contentW / 2);
     const startY = cy - (contentH / 2);
@@ -925,7 +932,14 @@ ${result.lineSequence.join(', ')}`
     canvas.height = canvasHeight;
 
     // Map currentImgSize (which is max dimension in logic) to canvas max dimension
-    const scale = Math.max(canvasWidth, canvasHeight) / currentImgSize;
+    const { scaleX, scaleY } = calculateCoordinateMapping(
+      currentImgSize,
+      shape,
+      width,
+      height,
+      canvasWidth,
+      canvasHeight
+    );
 
     // Clear and redraw
     ctx.fillStyle = 'white'
@@ -959,8 +973,9 @@ ${result.lineSequence.join(', ')}`
       
       if (pin1 && pin2 && pin1[0] !== undefined && pin1[1] !== undefined) {
         ctx.beginPath()
-        ctx.moveTo(pin1[0] * scale, pin1[1] * scale)
-        ctx.lineTo(pin2[0] * scale, pin2[1] * scale)
+        // Use separate scaling for X and Y to support tight rectangular cropping
+        ctx.moveTo(pin1[0] * scaleX, pin1[1] * scaleY)
+        ctx.lineTo(pin2[0] * scaleX, pin2[1] * scaleY)
         ctx.stroke()
       }
     }
@@ -970,7 +985,7 @@ ${result.lineSequence.join(', ')}`
     pinCoordinates.forEach(([x, y]) => {
       if (x !== undefined && y !== undefined) {
         ctx.beginPath()
-        ctx.arc(x * scale, y * scale, 1.5, 0, Math.PI * 2)
+        ctx.arc(x * scaleX, y * scaleY, 1.5, 0, Math.PI * 2)
         ctx.fill()
       }
     })
