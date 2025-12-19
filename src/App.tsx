@@ -1389,7 +1389,10 @@ ${result.lineSequence.join(', ')}`
                       <canvas
                         ref={mobileCanvasRef}
                         className="canvas-zoomable border border-border rounded-lg w-full mx-auto block transition-transform duration-100 touch-optimized"
-                        style={{ aspectRatio: '1/1', touchAction: 'none' }}
+                        style={{
+                          aspectRatio: shape === 'rectangle' && width && height ? `${width}/${height}` : '1/1',
+                          touchAction: 'none'
+                        }}
                         onTouchStart={(e) => {
                           handleCanvasInteraction(e)
                           canvasHandlers.onTouchStart(e)
