@@ -98,31 +98,49 @@ function App() {
   const [initialStep, setInitialStep] = useState(0)
 
   // Helper to load sequence data into a synthetic result
-  const loadSequenceData = (sequence: number[], decodedPins: number, step?: number) => {
+  const loadSequenceData = (
+    sequence: number[],
+    decodedPins: number,
+    shape: 'circle' | 'rectangle' = 'circle',
+    w: number = 500,
+    h: number = 500,
+    step?: number
+  ) => {
       // Construct synthetic result
       const syntheticResult: StringArtResult = {
         lineSequence: sequence,
         pinCoordinates: Array.from({ length: decodedPins }, (_, i) => {
-           // Generic circle coordinates (normalized to -0.5 to 0.5 range roughly)
+           // Basic placeholder coordinates - the Player will calculate precise ones for visualization
            const angle = (2 * Math.PI * i) / decodedPins;
            return [Math.cos(angle) * 250 + 250, Math.sin(angle) * 250 + 250];
         }),
         totalThreadLength: 0, // Unknown without physics
         parameters: {
-          shape: 'circle',
+          shape,
           numberOfPins: decodedPins,
           numberOfLines: sequence.length,
           lineWeight: 20,
           minDistance: 0,
           imgSize: 500,
           scale: 1,
-          hoopDiameter: 500
+          hoopDiameter: w, // Use width as diameter fallback
+          width: w,
+          height: h
         },
         processingTimeMs: 0
       };
 
       setResult(syntheticResult);
       setNumberOfPins(decodedPins);
+      if (shape === 'rectangle') {
+        setShape('rectangle');
+        setWidth(w);
+        setHeight(h);
+      } else {
+        setShape('circle');
+        setFrameDiameter(w);
+      }
+
       if (step !== undefined) {
         setInitialStep(step);
       }
@@ -142,8 +160,16 @@ function App() {
 
       if (encodedSeq) {
         try {
-          const { sequence, numberOfPins: decodedPins } = await decompressSequence(encodedSeq);
-          loadSequenceData(sequence, decodedPins, step ? parseInt(step, 10) : 0);
+          const data = await decompressSequence(encodedSeq);
+          // Handle V1 fallback (where shape might be undefined/default)
+          loadSequenceData(
+            data.sequence,
+            data.numberOfPins,
+            data.shape || 'circle',
+            data.width || 500,
+            data.height || 500,
+            step ? parseInt(step, 10) : 0
+          );
         } catch (e) {
           console.error('Failed to load sequence from URL', e);
           setError('Failed to load saved sequence.');
@@ -161,8 +187,15 @@ function App() {
     if (!importString) return;
     setIsImporting(true);
     try {
-      const { sequence, numberOfPins: decodedPins } = await decompressSequence(importString);
-      loadSequenceData(sequence, decodedPins, 0);
+      const data = await decompressSequence(importString);
+      loadSequenceData(
+        data.sequence,
+        data.numberOfPins,
+        data.shape || 'circle',
+        data.width || 500,
+        data.height || 500,
+        0
+      );
       setImportString('');
     } catch (e) {
       console.error(e);
@@ -1242,6 +1275,9 @@ ${result.lineSequence.join(', ')}`
                  sequence={result.lineSequence}
                  numberOfPins={result.parameters.numberOfPins}
                  initialStep={initialStep}
+                 shape={result.parameters.shape}
+                 width={result.parameters.width || result.parameters.hoopDiameter}
+                 height={result.parameters.height || result.parameters.hoopDiameter}
                  onReset={() => {
                    setResult(null);
                    setInitialStep(0);
@@ -1251,6 +1287,7 @@ ${result.lineSequence.join(', ')}`
                    url.searchParams.delete('step');
                    window.history.replaceState({}, '', url.toString());
                  }}
+                 onImport={(seq, pins, shape, w, h) => loadSequenceData(seq, pins, shape, w, h, 0)}
                />
             ) : (
               <Card className="card-hover border-2 mb-8">
@@ -1275,7 +1312,7 @@ ${result.lineSequence.join(', ')}`
                       disabled={!importString || isImporting}
                       className="w-full"
                     >
-                      {isImporting ? 'Loading...' : 'Load Sequence'}
+                      {isImporting ? 'Load Sequence' : 'Load Sequence'}
                     </Button>
                   </div>
                 </CardContent>

@@ -1,28 +1,57 @@
 
 // Utility to compress and decompress pin sequences for URL sharing
-// Format:
-// - Header: 16-bit Unsigned Integer (Number of Pins)
-// - Body: Array of 16-bit Unsigned Integers (Pin Sequence)
-// Compression: Gzip (via CompressionStream)
-// Encoding: URL-safe Base64
+// Format V1: [16-bit NumPins] [16-bit Sequence...]
+// Format V2: [8-bit Version=2] [8-bit ShapeType] [16-bit Width] [16-bit Height] [16-bit NumPins] [16-bit Sequence...]
+// ShapeType: 0 = circle, 1 = rectangle
 
-export async function compressSequence(sequence: number[], numberOfPins: number): Promise<string> {
-  // 1. Create binary buffer
-  // Size = 2 bytes (header) + sequence.length * 2 bytes
-  const buffer = new Uint16Array(1 + sequence.length);
-  buffer[0] = numberOfPins;
-  buffer.set(sequence, 1);
+export interface CompressedSequenceData {
+  sequence: number[];
+  numberOfPins: number;
+  shape: 'circle' | 'rectangle';
+  width: number;
+  height: number;
+}
 
-  // 2. Compress using Gzip
-  // We need to convert the typed array to a generic byte stream (Uint8Array) for the stream
-  const byteStream = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+export async function compressSequence(
+  sequence: number[],
+  numberOfPins: number,
+  shape: 'circle' | 'rectangle' = 'circle',
+  width: number = 500,
+  height: number = 500
+): Promise<string> {
+  // Use V2 format
+  // Header:
+  // Byte 0: Version (2)
+  // Byte 1: Shape (0 or 1)
+  // Byte 2-3: Width
+  // Byte 4-5: Height
+  // Byte 6-7: NumPins
+  // Rest: Sequence
 
+  const headerSize = 8;
+  const bufferLength = headerSize + (sequence.length * 2);
+  const buffer = new Uint8Array(bufferLength);
+  const view = new DataView(buffer.buffer);
+
+  view.setUint8(0, 2); // Version 2
+  view.setUint8(1, shape === 'circle' ? 0 : 1);
+  view.setUint16(2, width); // Big-endian by default in DataView
+  view.setUint16(4, height);
+  view.setUint16(6, numberOfPins);
+
+  // Sequence data
+  let offset = 8;
+  for (let i = 0; i < sequence.length; i++) {
+    view.setUint16(offset, sequence[i]);
+    offset += 2;
+  }
+
+  // Compress
   const stream = new CompressionStream('gzip');
   const writer = stream.writable.getWriter();
-  writer.write(byteStream);
+  writer.write(buffer);
   writer.close();
 
-  // 3. Read compressed data
   const compressedChunks: Uint8Array[] = [];
   const reader = stream.readable.getReader();
 
@@ -36,18 +65,15 @@ export async function compressSequence(sequence: number[], numberOfPins: number)
     reader.releaseLock();
   }
 
-  // Concatenate chunks
   const totalLength = compressedChunks.reduce((acc, chunk) => acc + chunk.length, 0);
   const compressedData = new Uint8Array(totalLength);
-  let offset = 0;
+  let dataOffset = 0;
   for (const chunk of compressedChunks) {
-    compressedData.set(chunk, offset);
-    offset += chunk.length;
+    compressedData.set(chunk, dataOffset);
+    dataOffset += chunk.length;
   }
 
-  // 4. Encode to Base64 (URL-safe)
-  // Convert Uint8Array to binary string
-  // Note: For very large arrays, spread syntax or apply might overflow stack, so we process in chunks
+  // Base64 Encode
   let binaryString = '';
   const chunkSize = 8192;
   for (let i = 0; i < compressedData.length; i += chunkSize) {
@@ -60,10 +86,9 @@ export async function compressSequence(sequence: number[], numberOfPins: number)
     .replace(/=+$/, '');
 }
 
-export async function decompressSequence(encoded: string): Promise<{ sequence: number[], numberOfPins: number }> {
-  // 1. Decode Base64
+export async function decompressSequence(encoded: string): Promise<CompressedSequenceData> {
+  // Decode Base64
   let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
-  // Pad with =
   while (base64.length % 4) {
     base64 += '=';
   }
@@ -74,7 +99,7 @@ export async function decompressSequence(encoded: string): Promise<{ sequence: n
     compressedData[i] = binaryString.charCodeAt(i);
   }
 
-  // 2. Decompress
+  // Decompress
   const stream = new DecompressionStream('gzip');
   const writer = stream.writable.getWriter();
   writer.write(compressedData);
@@ -101,21 +126,65 @@ export async function decompressSequence(encoded: string): Promise<{ sequence: n
     offset += chunk.length;
   }
 
-  // 3. Read Header and Sequence
-  // Ensure we have correct byte alignment for Uint16Array
-  // If the buffer starts at an odd offset (unlikely with new Uint8Array), copy it.
-  // Actually creating a new Uint16Array from the buffer automatically handles it?
-  // No, if byteOffset is not multiple of 2, it throws.
-  // But our new Uint8Array starts at 0.
+  const view = new DataView(decompressedBytes.buffer);
 
-  const buffer = new Uint16Array(decompressedBytes.buffer);
+  // Check Version
+  // Old format starts with 16-bit NumPins.
+  // V2 starts with 8-bit Version = 2.
+  // If byte 0 is 2, and byte 1 is 0 or 1, it's likely V2.
+  // If it's old format, byte 0 is high byte of numPins? No, DataView is Big Endian, Uint16Array is platform endian (usually Little Endian).
+  // Wait, my previous code used `new Uint16Array(buffer)`.
+  // Uint16Array uses platform endianness (Little Endian on x86/ARM).
+  // So `buffer[0]` (low byte) was the first byte.
+  // If `numberOfPins` is say 288 (0x0120), in LE it is [0x20, 0x01].
+  // 0x20 is 32. Not 2.
+  // If `numberOfPins` is small, e.g. 2? Then [0x02, 0x00]. It matches.
+  // But min pins is usually > 36.
+  // However, explicit versioning is safer.
 
-  if (buffer.length < 1) {
-    throw new Error('Invalid sequence data');
+  // Let's check the first byte.
+  const firstByte = view.getUint8(0);
+
+  if (firstByte === 2) {
+    // V2
+    const shapeType = view.getUint8(1);
+    const width = view.getUint16(2);
+    const height = view.getUint16(4);
+    const numberOfPins = view.getUint16(6);
+
+    const sequence: number[] = [];
+    for (let i = 8; i < decompressedBytes.length; i += 2) {
+      sequence.push(view.getUint16(i));
+    }
+
+    return {
+      sequence,
+      numberOfPins,
+      shape: shapeType === 1 ? 'rectangle' : 'circle',
+      width,
+      height
+    };
+  } else {
+    // Fallback to V1 (Uint16Array dump)
+    // Create Uint16Array from buffer (respecting alignment)
+    // Note: The previous code created `new Uint16Array(decompressedBytes.buffer)`.
+    // This interprets bytes in platform order (Little Endian).
+    // So we should do the same to maintain compat.
+
+    // Ensure byte alignment
+    const buffer = new Uint16Array(decompressedBytes.buffer, decompressedBytes.byteOffset, decompressedBytes.byteLength / 2);
+
+    if (buffer.length < 1) throw new Error('Invalid data');
+
+    const numberOfPins = buffer[0];
+    const sequence = Array.from(buffer.slice(1));
+
+    return {
+      sequence,
+      numberOfPins,
+      shape: 'circle', // Default for V1
+      width: 500,
+      height: 500
+    };
   }
-
-  const numberOfPins = buffer[0];
-  const sequence = Array.from(buffer.slice(1));
-
-  return { sequence, numberOfPins };
 }

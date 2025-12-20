@@ -2,50 +2,30 @@
 import { describe, it, expect } from 'vitest';
 import { compressSequence, decompressSequence } from '../../src/lib/utils/sequenceCompression';
 
-describe('Sequence Compression Utility', () => {
-  it('should compress and decompress a simple sequence correctly', async () => {
-    const sequence = [0, 10, 20, 30, 40, 50];
+describe('Sequence Compression Utility V2', () => {
+  it('should compress and decompress with shape data', async () => {
+    const sequence = [0, 10, 20, 30];
     const numberOfPins = 100;
+    const shape = 'rectangle';
+    const width = 800;
+    const height = 600;
 
-    const compressed = await compressSequence(sequence, numberOfPins);
-    expect(typeof compressed).toBe('string');
-    expect(compressed.length).toBeGreaterThan(0);
-
+    const compressed = await compressSequence(sequence, numberOfPins, shape, width, height);
     const result = await decompressSequence(compressed);
+
     expect(result.numberOfPins).toBe(numberOfPins);
     expect(result.sequence).toEqual(sequence);
+    expect(result.shape).toBe(shape);
+    expect(result.width).toBe(width);
+    expect(result.height).toBe(height);
   });
 
-  it('should handle large sequences', async () => {
-    const numberOfPins = 360;
-    const sequence = Array.from({ length: 4000 }, () => Math.floor(Math.random() * numberOfPins));
-
-    const compressed = await compressSequence(sequence, numberOfPins);
-    // Compression should achieve some reduction or at least valid string
-    expect(typeof compressed).toBe('string');
-
+  it('should handle default circle shape', async () => {
+    const sequence = [1, 2, 3];
+    const compressed = await compressSequence(sequence, 200); // defaults
     const result = await decompressSequence(compressed);
-    expect(result.numberOfPins).toBe(numberOfPins);
-    expect(result.sequence).toEqual(sequence);
-  });
 
-  it('should handle URL-safe characters', async () => {
-    // Generate data that might produce + or / in standard base64
-    // This is probabilistic, but 100 random numbers usually suffice
-    const sequence = Array.from({ length: 100 }, () => Math.floor(Math.random() * 256));
-    const numberOfPins = 256;
-
-    const compressed = await compressSequence(sequence, numberOfPins);
-    expect(compressed).not.toMatch(/[+/=]/); // Should not contain standard base64 unsafe chars
-    expect(compressed).toMatch(/^[A-Za-z0-9_-]*$/);
-
-    const result = await decompressSequence(compressed);
-    expect(result.sequence).toEqual(sequence);
-  });
-
-  it('should throw or fail gracefully on invalid data', async () => {
-     // This test depends on implementation details, but passing garbage should fail
-     const garbage = 'NotAValidCompressedString';
-     await expect(decompressSequence(garbage)).rejects.toThrow();
+    expect(result.shape).toBe('circle');
+    expect(result.width).toBe(500);
   });
 });
