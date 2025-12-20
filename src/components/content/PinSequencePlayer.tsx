@@ -188,7 +188,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       const availableVoices = window.speechSynthesis.getVoices();
       setVoices(availableVoices);
       if (!selectedVoice) {
-        const defaultVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
+        const browserLang = navigator.language;
+        const defaultVoice =
+          availableVoices.find(v => v.lang === browserLang) ||
+          availableVoices.find(v => v.lang.startsWith(browserLang.split('-')[0])) ||
+          availableVoices.find(v => v.lang.startsWith('en')) ||
+          availableVoices[0];
         setSelectedVoice(defaultVoice);
       }
     };
@@ -512,7 +517,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                }}
              >
                {voices.map(v => (
-                 <option key={v.name} value={v.name}>{v.name.slice(0, 20)}...</option>
+                 <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
                ))}
              </select>
            </div>
