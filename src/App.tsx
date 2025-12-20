@@ -7,6 +7,7 @@ import { MobileSlider } from './components/ui/mobile-slider'
 import { YarnParameters } from './components/forms/yarn-parameters'
 import { PinSequencePlayer } from './components/content/PinSequencePlayer'
 import { decompressSequence } from './lib/utils/sequenceCompression'
+import { calculatePins } from './lib/algorithms/pinCalculation'
 import type { YarnSpec } from './types/yarn'
 
 // Layout Components
@@ -106,14 +107,19 @@ function App() {
     h: number = 500,
     step?: number
   ) => {
+      // Calculate actual pins based on shape
+      const pinCoords = calculatePins({
+        numberOfPins: decodedPins,
+        shape,
+        width: w,
+        height: h,
+        imgSize: 500 // Consistent base size
+      });
+
       // Construct synthetic result
       const syntheticResult: StringArtResult = {
         lineSequence: sequence,
-        pinCoordinates: Array.from({ length: decodedPins }, (_, i) => {
-           // Basic placeholder coordinates - the Player will calculate precise ones for visualization
-           const angle = (2 * Math.PI * i) / decodedPins;
-           return [Math.cos(angle) * 250 + 250, Math.sin(angle) * 250 + 250];
-        }),
+        pinCoordinates: pinCoords,
         totalThreadLength: 0, // Unknown without physics
         parameters: {
           shape,
@@ -1268,49 +1274,6 @@ ${result.lineSequence.join(', ')}`
             </CardContent>
           </Card>
 
-          {/* Pin Sequence Player Card (Always Visible) */}
-          <div id="pin-sequence-player">
-            {result ? (
-               <PinSequencePlayer
-                 sequence={result.lineSequence}
-                 numberOfPins={result.parameters.numberOfPins}
-                 initialStep={initialStep}
-                 shape={result.parameters.shape}
-                 width={result.parameters.width || result.parameters.hoopDiameter}
-                 height={result.parameters.height || result.parameters.hoopDiameter}
-                 onImport={(seq, pins, shape, w, h) => loadSequenceData(seq, pins, shape, w, h, 0)}
-               />
-            ) : (
-              <Card className="card-hover border-2 mb-8">
-                <CardHeader className="pb-4">
-                  <h3 className="text-heading-md font-semibold flex items-center gap-2">
-                    <span>🎧</span> Hands-free Player
-                  </h3>
-                  <p className="text-body-sm text-subtle">
-                    Import a saved pin sequence to start the audio guide without generating a new image.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <textarea
-                      className="w-full h-24 p-3 text-xs font-mono border rounded bg-background resize-none"
-                      placeholder="Paste Share Code..."
-                      value={importString}
-                      onChange={(e) => setImportString(e.target.value)}
-                    />
-                    <Button
-                      onClick={handleImportString}
-                      disabled={!importString || isImporting}
-                      className="w-full"
-                    >
-                      {isImporting ? 'Load Sequence' : 'Load Sequence'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
           {/* Preset Selection */}
           <div className={!selectedImage ? "opacity-50" : ""}>
             {/* Shape & Dimension Selection (Moved to top) */}
@@ -1718,6 +1681,49 @@ ${result.lineSequence.join(', ')}`
               </CardContent>
             </Card>
           )}
+
+          {/* Pin Sequence Player Card (Always Visible) */}
+          <div id="pin-sequence-player">
+            {result ? (
+               <PinSequencePlayer
+                 sequence={result.lineSequence}
+                 numberOfPins={result.parameters.numberOfPins}
+                 initialStep={initialStep}
+                 shape={result.parameters.shape}
+                 width={result.parameters.width || result.parameters.hoopDiameter}
+                 height={result.parameters.height || result.parameters.hoopDiameter}
+                 onImport={(seq, pins, shape, w, h) => loadSequenceData(seq, pins, shape, w, h, 0)}
+               />
+            ) : (
+              <Card className="card-hover border-2 mb-8">
+                <CardHeader className="pb-4">
+                  <h3 className="text-heading-md font-semibold flex items-center gap-2">
+                    <span>🎧</span> Hands-free Player
+                  </h3>
+                  <p className="text-body-sm text-subtle">
+                    Import a saved pin sequence to start the audio guide without generating a new image.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <textarea
+                      className="w-full h-24 p-3 text-xs font-mono border rounded bg-background resize-none"
+                      placeholder="Paste Share Code..."
+                      value={importString}
+                      onChange={(e) => setImportString(e.target.value)}
+                    />
+                    <Button
+                      onClick={handleImportString}
+                      disabled={!importString || isImporting}
+                      className="w-full"
+                    >
+                      {isImporting ? 'Load Sequence' : 'Load Sequence'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
             </div>
           </div>
         </div>
