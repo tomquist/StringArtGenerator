@@ -82,6 +82,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     window.speechSynthesis.cancel();
   }, [sequence, initialStep]);
 
+  // Reset estimation when speed changes
+  useEffect(() => {
+    setAvgTimeMetric(null);
+    setSampleCount(0);
+    lastStepInfo.current = null;
+  }, [speed]);
+
   // Memoize pin coordinates for visualization
   const pinCoordinates = useMemo(() => {
     // We calculate pins on a normalized 1000x1000 space for precision then scale
