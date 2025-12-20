@@ -55,6 +55,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
   const [avgTimeMetric, setAvgTimeMetric] = useState<number | null>(null);
+  const [sampleCount, setSampleCount] = useState(0);
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -75,6 +76,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     setCurrentStep(initialStep);
     setIsPlaying(false);
     setAvgTimeMetric(null);
+    setSampleCount(0);
     lastStepInfo.current = null;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     window.speechSynthesis.cancel();
@@ -247,6 +249,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           // Exponential Moving Average (alpha = 0.2)
           return prev * 0.8 + currentMetric * 0.2;
         });
+        setSampleCount(prev => prev + 1);
       }
 
       // Record start of this step
@@ -258,11 +261,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
 
     return () => {
-      // Cleanup handled by individual stop actions, but here we ensure consistency
-      if (!isPlaying) {
-        window.speechSynthesis.cancel();
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      }
+      // Always cleanup on unmount or dependency change to prevent zombie audio
+      window.speechSynthesis.cancel();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, isPlaying]); // speed is purposefully excluded to avoid re-triggering during playback
@@ -447,7 +448,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
               <span className="text-body-sm text-subtle">/ {sequence.length}</span>
             </div>
             <div className="text-xs text-subtle mt-2 font-medium">
-              Est. remaining: {formatTime(estimatedSeconds)}
+              Est. remaining: {sampleCount < 5 ? "Calculating..." : formatTime(estimatedSeconds)}
             </div>
 
             <div className="w-full h-2 bg-muted rounded-full mt-4 overflow-hidden">
