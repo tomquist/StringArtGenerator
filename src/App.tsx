@@ -1294,7 +1294,7 @@ ${result.lineSequence.join(', ')}`
                   <div className="space-y-4">
                     <textarea
                       className="w-full h-24 p-3 text-xs font-mono border rounded bg-background resize-none"
-                      placeholder="Paste compressed sequence string here..."
+                      placeholder="Paste Share Code..."
                       value={importString}
                       onChange={(e) => setImportString(e.target.value)}
                     />

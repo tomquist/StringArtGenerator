@@ -61,7 +61,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Constants
-  const BASE_TIME_PER_PIN = 2.5;
+  // Average speech time per number at 1x speed is approx 0.8s (e.g. "one hundred twenty three")
+  // Delay floor is 0.5s.
+  // Dynamic calculation matches the actual playback logic.
+  const calculateTimePerPin = (s: number) => {
+    return (0.8 / s) + Math.max(0.5, 1.5 / s);
+  };
 
   // FIX: Reset state when sequence changes or initialStep changes
   useEffect(() => {
@@ -315,13 +320,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
               setShowImport(false);
           }
         } catch {
-          alert('Invalid sequence string');
+          alert('Invalid Share Code');
         }
     });
   };
 
   const remainingSteps = sequence.length - currentStep - 1;
-  const estimatedSeconds = Math.max(0, remainingSteps * (BASE_TIME_PER_PIN / speed));
+  const estimatedSeconds = Math.max(0, remainingSteps * calculateTimePerPin(speed));
 
   return (
     <Card className="card-hover border-2 mt-8">
@@ -338,7 +343,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         <div className="flex gap-2">
            <Button variant="outline" size="sm" onClick={() => setShowImport(!showImport)}>
              {showImport ? <X className="w-4 h-4 mr-1" /> : <FileDown className="w-4 h-4 mr-1" />}
-             {showImport ? 'Close' : 'Import / Export'}
+             {showImport ? 'Close' : 'Share / Load'}
            </Button>
         </div>
       </CardHeader>
@@ -351,7 +356,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              <div className="flex gap-2">
                 <Button className="flex-1" variant="secondary" onClick={handleExportCopy}>
                   {isCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                  {isCopied ? 'Copied!' : 'Copy Current Sequence'}
+                  {isCopied ? 'Copied!' : 'Copy Share Code'}
                 </Button>
              </div>
              <div className="relative">
@@ -359,13 +364,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or Import</span>
+                  <span className="bg-background px-2 text-muted-foreground">Or Load</span>
                 </div>
              </div>
              <div className="flex gap-2">
                <input
                  className="flex-1 p-2 text-xs font-mono border rounded"
-                 placeholder="Paste sequence string..."
+                 placeholder="Paste Share Code..."
                  value={importText}
                  onChange={(e) => setImportText(e.target.value)}
                />
