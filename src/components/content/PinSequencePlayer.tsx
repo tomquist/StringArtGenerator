@@ -54,11 +54,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
+  const [avgTimeMetric, setAvgTimeMetric] = useState<number | null>(null);
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
 
   // Constants
   // Average speech time per number at 1x speed is approx 0.8s (e.g. "one hundred twenty three")
@@ -72,6 +74,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     setCurrentStep(initialStep);
     setIsPlaying(false);
+    setAvgTimeMetric(null);
+    lastStepInfo.current = null;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     window.speechSynthesis.cancel();
   }, [sequence, initialStep]);
@@ -229,18 +233,44 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
   useEffect(() => {
     if (isPlaying) {
+      const now = Date.now();
+
+      // Calculate adaptive timing if we have a previous step record
+      if (lastStepInfo.current) {
+        const { time: startTime, speed: startSpeed } = lastStepInfo.current;
+        const duration = (now - startTime) / 1000;
+        // Normalize metric: duration * speed = constant "effort"
+        const currentMetric = duration * startSpeed;
+
+        setAvgTimeMetric(prev => {
+          if (prev === null) return currentMetric;
+          // Exponential Moving Average (alpha = 0.2)
+          return prev * 0.8 + currentMetric * 0.2;
+        });
+      }
+
+      // Record start of this step
+      lastStepInfo.current = { time: now, speed };
       speakPin(currentStep);
+    } else {
+      // Reset tracking when paused/stopped
+      lastStepInfo.current = null;
     }
+
     return () => {
-      window.speechSynthesis.cancel();
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      // Cleanup handled by individual stop actions, but here we ensure consistency
+      if (!isPlaying) {
+        window.speechSynthesis.cancel();
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, isPlaying]);
+  }, [currentStep, isPlaying]); // speed is purposefully excluded to avoid re-triggering during playback
 
   const togglePlay = () => {
     if (isPlaying) {
       setIsPlaying(false);
+      lastStepInfo.current = null;
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } else {
@@ -248,7 +278,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       if (currentStep >= sequence.length - 1) {
         setCurrentStep(0);
       } else {
-        speakPin(currentStep);
+        // speakPin call handled by effect when isPlaying becomes true
       }
     }
   };
@@ -326,7 +356,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   };
 
   const remainingSteps = sequence.length - currentStep - 1;
-  const estimatedSeconds = Math.max(0, remainingSteps * calculateTimePerPin(speed));
+  // Use measured average if available, otherwise heuristic
+  const timePerStep = avgTimeMetric ? (avgTimeMetric / speed) : calculateTimePerPin(speed);
+  const estimatedSeconds = Math.max(0, remainingSteps * timePerStep);
 
   return (
     <Card className="card-hover border-2 mt-8">
