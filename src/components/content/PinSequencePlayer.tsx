@@ -380,7 +380,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         <div className="flex flex-col sm:flex-row gap-6 items-center justify-center p-6 bg-muted/30 rounded-lg">
 
           {/* Visualizer */}
-          <div className="relative w-48 h-48 bg-white rounded-full sm:rounded-lg border shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden">
+          <div className={`relative w-48 h-48 bg-white border shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-lg'}`}>
              <canvas
                ref={canvasRef}
                width={200}
