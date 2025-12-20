@@ -1,9 +1,21 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { compressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Headphones,
+  Copy,
+  Check,
+  FileUp,
+  FileDown,
+  Search,
+  X
+} from 'lucide-react';
 
 interface PinSequencePlayerProps {
   sequence: number[];
@@ -12,7 +24,6 @@ interface PinSequencePlayerProps {
   shape?: 'circle' | 'rectangle';
   width?: number;
   height?: number;
-  onReset?: () => void;
   onImport?: (sequence: number[], pins: number, shape: 'circle' | 'rectangle', w: number, h: number) => void;
 }
 
@@ -30,7 +41,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   shape = 'circle',
   width = 500,
   height = 500,
-  onReset,
   onImport
 }) => {
   // State
@@ -42,6 +52,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -51,11 +63,17 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Constants
   const BASE_TIME_PER_PIN = 2.5;
 
+  // FIX: Reset state when sequence changes or initialStep changes
+  useEffect(() => {
+    setCurrentStep(initialStep);
+    setIsPlaying(false);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    window.speechSynthesis.cancel();
+  }, [sequence, initialStep]);
+
   // Memoize pin coordinates for visualization
   const pinCoordinates = useMemo(() => {
-    // We calculate pins on a normalized 200x200 canvas
-    // Or simpler: calculate using provided dimensions and scale down during render
-    // Let's calculate using relative 1000x1000 space for precision then scale
+    // We calculate pins on a normalized 1000x1000 space for precision then scale
     return calculatePins({
       numberOfPins,
       shape,
@@ -82,24 +100,17 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     const drawH = h - 2 * p;
 
     // Scale Logic
-    // Coordinates are in 0..1000 space (max dimension)
-    // We need to fit them into drawW x drawH
-    // If rect, aspect ratio matters.
     let scale = 1;
     let offsetX = p;
     let offsetY = p;
 
-    // Calculate aspect ratio of the generated coordinates
-    const aspect = width / height; // Physical aspect
+    const aspect = (width || 500) / (height || 500);
 
     if (aspect >= 1) {
-       // Width dominant
        scale = drawW / 1000;
-       // Center Y
        const scaledH = (1000 / aspect) * scale;
        offsetY = p + (drawH - scaledH) / 2;
     } else {
-       // Height dominant
        scale = drawH / 1000;
        const scaledW = (1000 * aspect) * scale;
        offsetX = p + (drawW - scaledW) / 2;
@@ -113,22 +124,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     if (shape === 'circle') {
        const cx = w / 2;
        const cy = h / 2;
-       // Radius is half of drawn dimension roughly
        const r = (Math.min(drawW, drawH) / 2);
        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
     } else {
-        // Draw rect path based on corner pins?
-        // Or just rect
-        // Since we have offset and scale, we can draw the bounding box
-        // But let's just connect all pins lightly to show the shape exactly
-        // actually that's expensive.
-        // Just draw rect.
-        // We need to know the pixel dimensions of the rect in 1000x1000 space.
-        // It's 1000 x (1000/aspect) or similar.
-        // Actually, easier:
-        // Draw faint dots for all pins?
-        // No, just the shape.
-
         let rectW, rectH;
         if (aspect >= 1) {
             rectW = 1000 * scale;
@@ -307,25 +305,20 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
   };
 
-  const [importText, setImportText] = useState('');
-  const [showImport, setShowImport] = useState(false);
-
-  const handleImportSubmit = async () => {
-    if(!importText || !onImport) return;
-    // We need to decompress here to validate, but App handles the actual logic.
-    // Or we rely on App to handle the import via a callback that accepts the string?
-    // The prop onImport expects parsed data.
-    // Let's import the decompressor here or move logic up.
-    // Ideally, keep this component dumb-ish about decompression if possible, BUT it imports `compressSequence`.
-    // So importing `decompressSequence` is fine.
-
-    // Actually, `decompressSequence` is in the same util file.
-    // Let's dynamically import it or assume it's available (it's not imported yet).
-    // I need to add it to imports.
+  const handleImportSubmit = () => {
+    import('../../lib/utils/sequenceCompression').then(async ({ decompressSequence }) => {
+        try {
+          const data = await decompressSequence(importText);
+          if (onImport) {
+              onImport(data.sequence, data.numberOfPins, data.shape, data.width, data.height);
+              setImportText('');
+              setShowImport(false);
+          }
+        } catch {
+          alert('Invalid sequence string');
+        }
+    });
   };
-
-  // Helper for dynamic import to avoid circular dependencies or just add to imports
-  // Added import at top.
 
   const remainingSteps = sequence.length - currentStep - 1;
   const estimatedSeconds = Math.max(0, remainingSteps * (BASE_TIME_PER_PIN / speed));
@@ -335,7 +328,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       <CardHeader className="pb-4 flex flex-row items-center justify-between">
         <div className="flex flex-col">
           <h3 className="text-heading-md font-semibold flex items-center gap-2">
-            <span>🎧</span> Hands-free Player
+            <Headphones className="w-5 h-5" />
+            <span>Hands-free Player</span>
           </h3>
           <p className="text-body-sm text-subtle">
             Audio guide with visual indicator.
@@ -343,19 +337,21 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         </div>
         <div className="flex gap-2">
            <Button variant="outline" size="sm" onClick={() => setShowImport(!showImport)}>
-             {showImport ? 'Cancel Import' : 'Import / Export'}
+             {showImport ? <X className="w-4 h-4 mr-1" /> : <FileDown className="w-4 h-4 mr-1" />}
+             {showImport ? 'Close' : 'Import / Export'}
            </Button>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
 
-        {/* Import / Export Section (Streamlined) */}
+        {/* Import / Export Section */}
         {showImport && (
           <div className="p-4 bg-muted/30 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-2">
              <div className="flex gap-2">
                 <Button className="flex-1" variant="secondary" onClick={handleExportCopy}>
-                  {isCopied ? '✅ Copied to Clipboard!' : '📋 Copy Current Sequence'}
+                  {isCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                  {isCopied ? 'Copied!' : 'Copy Current Sequence'}
                 </Button>
              </div>
              <div className="relative">
@@ -373,25 +369,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                  value={importText}
                  onChange={(e) => setImportText(e.target.value)}
                />
-               <Button onClick={() => {
-                  // We need to trigger the import logic.
-                  // Since `onImport` expects parsed data, let's just pass the string up?
-                  // Or parse it here.
-                  // Let's parse here.
-                  import('../../lib/utils/sequenceCompression').then(async ({ decompressSequence }) => {
-                     try {
-                        const data = await decompressSequence(importText);
-                        if (onImport) {
-                           onImport(data.sequence, data.numberOfPins, data.shape, data.width, data.height);
-                           setImportText('');
-                           setShowImport(false);
-                        }
-                     } catch(e) {
-                        alert('Invalid sequence string');
-                     }
-                  });
-               }}>
-                 Load
+               <Button onClick={handleImportSubmit}>
+                 <FileUp className="w-4 h-4 mr-1" /> Load
                </Button>
              </div>
           </div>
@@ -446,7 +425,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         {/* Controls */}
         <div className="flex items-center justify-center gap-6">
           <Button variant="outline" size="icon" className="w-12 h-12" onClick={handlePrev} disabled={currentStep === 0}>
-            ⏮
+            <SkipBack className="w-5 h-5" />
           </Button>
 
           <Button
@@ -454,11 +433,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
             className="w-20 h-20 rounded-full text-3xl shadow-lg"
             onClick={togglePlay}
           >
-            {isPlaying ? '⏸' : '▶'}
+            {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
           </Button>
 
           <Button variant="outline" size="icon" className="w-12 h-12" onClick={handleNext} disabled={currentStep >= sequence.length - 1}>
-            ⏭
+            <SkipForward className="w-5 h-5" />
           </Button>
         </div>
 
@@ -496,15 +475,18 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
         {/* Search */}
         <div className="space-y-2">
-          <input
-            type="text"
-            placeholder="Search sequence (e.g. '10 45 12')..."
-            value={searchQuery}
-            onChange={handleSearch}
-            className="w-full p-2 rounded border border-input bg-background text-sm"
-          />
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search sequence (e.g. '10 45 12')..."
+              value={searchQuery}
+              onChange={handleSearch}
+              className="w-full pl-9 p-2 rounded border border-input bg-background text-sm"
+            />
+          </div>
           {searchMessage && (
-            <p className={`text-xs ${searchMessage.includes('Unique') ? 'text-green-600' : 'text-amber-600'}`}>
+            <p className={`text-xs ${searchMessage.includes('Found') ? 'text-green-600' : 'text-amber-600'}`}>
               {searchMessage}
             </p>
           )}

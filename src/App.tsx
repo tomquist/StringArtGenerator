@@ -1278,15 +1278,6 @@ ${result.lineSequence.join(', ')}`
                  shape={result.parameters.shape}
                  width={result.parameters.width || result.parameters.hoopDiameter}
                  height={result.parameters.height || result.parameters.hoopDiameter}
-                 onReset={() => {
-                   setResult(null);
-                   setInitialStep(0);
-                   // Clear URL params
-                   const url = new URL(window.location.href);
-                   url.searchParams.delete('seq');
-                   url.searchParams.delete('step');
-                   window.history.replaceState({}, '', url.toString());
-                 }}
                  onImport={(seq, pins, shape, w, h) => loadSequenceData(seq, pins, shape, w, h, 0)}
                />
             ) : (
