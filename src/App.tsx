@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { jsPDF } from 'jspdf'
 import { generateStringArt } from './lib/algorithms/stringArtEngine'
 import type { StringArtResult, OptimizationProgress, StringArtShape } from './types'
 import { useMobileCanvas } from './hooks/useMobileCanvas'
 import { MobileSlider } from './components/ui/mobile-slider'
 import { YarnParameters } from './components/forms/yarn-parameters'
+import { PinSequencePlayer } from './components/content/PinSequencePlayer'
+import { decompressSequence } from './lib/utils/sequenceCompression'
+import { calculatePins } from './lib/algorithms/pinCalculation'
 import type { YarnSpec } from './types/yarn'
 
 // Layout Components
@@ -93,6 +96,120 @@ function App() {
   const [result, setResult] = useState<StringArtResult | null>(null)
   const [progress, setProgress] = useState<OptimizationProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [initialStep, setInitialStep] = useState(0)
+
+  // Helper to load sequence data into a synthetic result
+  const loadSequenceData = useCallback((
+    sequence: number[],
+    decodedPins: number,
+    shape: 'circle' | 'rectangle' = 'circle',
+    w: number = 500,
+    h: number = 500,
+    step?: number
+  ) => {
+      // Calculate actual pins based on shape
+      const pinCoords = calculatePins({
+        numberOfPins: decodedPins,
+        shape,
+        width: w,
+        height: h,
+        imgSize: 500 // Consistent base size
+      });
+
+      // Construct synthetic result
+      const syntheticResult: StringArtResult = {
+        lineSequence: sequence,
+        pinCoordinates: pinCoords,
+        totalThreadLength: 0, // Unknown without physics
+        parameters: {
+          shape,
+          numberOfPins: decodedPins,
+          numberOfLines: sequence.length,
+          lineWeight: 20,
+          minDistance: 0,
+          imgSize: 500,
+          scale: 1,
+          hoopDiameter: w, // Use width as diameter fallback
+          width: w,
+          height: h
+        },
+        processingTimeMs: 0
+      };
+
+      setResult(syntheticResult);
+      setNumberOfPins(decodedPins);
+      if (shape === 'rectangle') {
+        setShape('rectangle');
+        setWidth(w);
+        setHeight(h);
+      } else {
+        setShape('circle');
+        setFrameDiameter(w);
+      }
+
+      if (step !== undefined) {
+        setInitialStep(step);
+      }
+
+      // Scroll to player
+      setTimeout(() => {
+        document.getElementById('pin-sequence-player')?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+  }, []); // Dependencies are setters which are stable
+
+  // URL State Handling
+  useEffect(() => {
+    const checkUrlParams = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const encodedSeq = params.get('seq');
+      const step = params.get('step');
+
+      if (encodedSeq) {
+        try {
+          const data = await decompressSequence(encodedSeq);
+          // Handle V1 fallback (where shape might be undefined/default)
+          loadSequenceData(
+            data.sequence,
+            data.numberOfPins,
+            data.shape || 'circle',
+            data.width || 500,
+            data.height || 500,
+            step ? parseInt(step, 10) : 0
+          );
+        } catch (e) {
+          console.error('Failed to load sequence from URL', e);
+          setError('Failed to load saved sequence.');
+        }
+      }
+    };
+
+    checkUrlParams();
+  }, [loadSequenceData]);
+
+  const [importString, setImportString] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleImportString = async () => {
+    if (!importString) return;
+    setIsImporting(true);
+    try {
+      const data = await decompressSequence(importString);
+      loadSequenceData(
+        data.sequence,
+        data.numberOfPins,
+        data.shape || 'circle',
+        data.width || 500,
+        data.height || 500,
+        0
+      );
+      setImportString('');
+    } catch (e) {
+      console.error(e);
+      setError('Invalid sequence string.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
   
   // UI State
   const [selectedPreset, setSelectedPreset] = useState<string>('fine')
@@ -1557,12 +1674,56 @@ ${result.lineSequence.join(', ')}`
                           Create New
                         </Button>
                       </div>
+
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Pin Sequence Player Card (Always Visible) */}
+          <div id="pin-sequence-player">
+            {result ? (
+               <PinSequencePlayer
+                 sequence={result.lineSequence}
+                 numberOfPins={result.parameters.numberOfPins}
+                 initialStep={initialStep}
+                 shape={result.parameters.shape}
+                 width={result.parameters.width || result.parameters.hoopDiameter}
+                 height={result.parameters.height || result.parameters.hoopDiameter}
+                 onImport={(seq, pins, shape, w, h) => loadSequenceData(seq, pins, shape, w, h, 0)}
+               />
+            ) : (
+              <Card className="card-hover border-2 mb-8">
+                <CardHeader className="pb-4">
+                  <h3 className="text-heading-md font-semibold flex items-center gap-2">
+                    <span>🎧</span> Hands-free Player
+                  </h3>
+                  <p className="text-body-sm text-subtle">
+                    Import a saved pin sequence to start the audio guide without generating a new image.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <textarea
+                      className="w-full h-24 p-3 text-xs font-mono border rounded bg-background resize-none"
+                      placeholder="Paste Share Code..."
+                      value={importString}
+                      onChange={(e) => setImportString(e.target.value)}
+                    />
+                    <Button
+                      onClick={handleImportString}
+                      disabled={!importString || isImporting}
+                      className="w-full"
+                    >
+                      {isImporting ? 'Loading...' : 'Load Sequence'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
             </div>
           </div>
         </div>
