@@ -411,7 +411,7 @@ export async function downloadPDF(result: StringArtResult, frameDiameter: number
   };
 
   // --- Page 2: High Resolution Image (1:1 Scale - Full) ---
-  doc.addPage([pageW, pageH] as unknown as [number, number], pageW > pageH ? 'l' : 'p');
+  doc.addPage([pageW, pageH], pageW > pageH ? 'l' : 'p');
   drawPreviewContent(0, 0);
 
   // --- Page 2b: Tiled Preview (if larger than A4) ---
@@ -433,7 +433,7 @@ export async function downloadPDF(result: StringArtResult, frameDiameter: number
   }
 
   // --- Page 3: Template / Stencil (1:1 Scale - Full) ---
-  doc.addPage([pageW, pageH] as unknown as [number, number], pageW > pageH ? 'l' : 'p');
+  doc.addPage([pageW, pageH], pageW > pageH ? 'l' : 'p');
   drawTemplateContent(0, 0);
 
   // --- Page 3b: Tiled Template (if larger than A4) ---
