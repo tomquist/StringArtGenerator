@@ -217,7 +217,7 @@ export async function optimizeStringArt(
     );
 
     if (bestPin === -1) {
-      console.warn('No valid next pin found, stopping optimization');
+      // No valid next pin found, stopping optimization early
       break;
     }
 
@@ -245,10 +245,8 @@ export async function optimizeStringArt(
 
     currentPin = bestPin;
 
-    // Report progress (every 10 lines like original, not every OPTIMIZATION_BATCH_SIZE)
+    // Report progress (every 10 lines to balance UI updates and performance)
     if (onProgress && (lineIndex % 10 === 0 || lineIndex === params.numberOfLines - 1)) {
-      console.log(`Line ${lineIndex + 1}/${params.numberOfLines}: Calling progress callback`)
-      
       const progress: OptimizationProgress = {
         linesDrawn: lineIndex + 1,
         totalLines: params.numberOfLines,
@@ -257,10 +255,10 @@ export async function optimizeStringArt(
         nextPin: bestPin,
         threadLength: totalThreadLength,
       };
-      
+
       // Pass current line sequence and pin coordinates for progressive drawing
       onProgress(progress, [...lineSequence], pinCoords);
-      
+
       // Yield control to prevent blocking
       await new Promise(resolve => setTimeout(resolve, 0));
     }

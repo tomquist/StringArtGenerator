@@ -46,7 +46,6 @@ export async function generateStringArt(
   };
 
   // Step 1: Process the image
-  console.log('Processing image...');
   const processedImageData = processImageForStringArt(
     imageElement,
     parameters.imgSize,
@@ -56,16 +55,12 @@ export async function generateStringArt(
   );
   
   // Step 2: Calculate pin positions
-  console.log('Calculating pin positions...');
   const pinCoordinates = calculatePins(parameters);
 
   // Step 3: Precalculate line cache
-  console.log('Precalculating lines...');
   const lineCache = precalculateLineCache(pinCoordinates, parameters.minDistance);
 
   // Step 4: Create error matrix from processed image
-  console.log('Creating error matrix...');
-
   // Convert processed image to flattened array for optimization
   // createErrorMatrix accepts any 1D array length (supporting both square and rectangular images)
   const imageArray = imageDataToFlatArray({
@@ -77,7 +72,6 @@ export async function generateStringArt(
   const errorMatrix = createErrorMatrix(imageArray);
 
   // Step 5: Optimize string art
-  console.log('Optimizing string art...');
   const { lineSequence, totalThreadLength } = await optimizeStringArt(
     errorMatrix,
     pinCoordinates,

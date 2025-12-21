@@ -151,9 +151,8 @@ export function calculateRectangularPins(params: Partial<StringArtParameters>): 
   // We do NOT add any offset to center it within a larger square `imgSize`, because the underlying error matrix
   // will match the cropped image dimensions exactly.
 
-  if (coords.length !== numberOfPins) {
-    console.warn(`Generated ${coords.length} pins, but requested ${numberOfPins}. This is expected for odd pin counts on rectangles but should be close.`);
-  }
+  // Note: Generated pin count may differ slightly from requested for geometric constraints
+  // This is expected for rectangles to ensure corners are properly placed
 
   return coords;
 }
