@@ -259,19 +259,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
          const currentSpeed = speedRef.current;
          const delay = Math.max(500, 1500 / currentSpeed);
          timeoutRef.current = setTimeout(() => {
-           // We are in a timeout, so we should check again if still playing?
-           // The cleanup clears timeout, so if we are here, we are good.
-           // But `currentStep` here is stale (from closure).
-           // We use functional update for setCurrentStep, which is fine.
-           // But the condition `currentStep < sequence.length - 1` uses stale `currentStep`.
-           // This is tricky.
-           // However, the effect `useEffect(() => { if (isPlaying) speakPin... }, [currentStep])`
-           // handles the loop. `speakPin` is called for a specific step.
-           // The callback updates state to trigger next step.
-           // We need to know if the *current* step is the last one.
-           // The closure `pinIndex` matches the step we just spoke.
            if (pinIndex < sequence.length - 1) {
-             setCurrentStep(pinIndex + 1); // Explicitly move to next from current closure index
+             setCurrentStep(pinIndex + 1);
            } else {
              setIsPlaying(false);
            }
