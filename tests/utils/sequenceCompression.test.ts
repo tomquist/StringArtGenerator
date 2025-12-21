@@ -95,5 +95,36 @@ describe('Sequence Compression Utility V1', () => {
         // Base64 decoding empty string results in empty buffer, which fails version check
         await expect(decompressSequence('')).rejects.toThrow();
     });
+
+    it('should throw on invalid shape type', async () => {
+        // Construct a buffer with valid header but invalid shape type (e.g., 2)
+        // V1 Format: [Version=1, Shape=2, Width=500, Height=500, NumPins=100]
+        const buffer = new Uint8Array(8);
+        const view = new DataView(buffer.buffer);
+        view.setUint8(0, 1); // Version 1
+        view.setUint8(1, 2); // Invalid Shape
+        view.setUint16(2, 500);
+        view.setUint16(4, 500);
+        view.setUint16(6, 100);
+
+        // Compress manually
+        const stream = new CompressionStream('gzip');
+        const writer = stream.writable.getWriter();
+        await writer.write(buffer);
+        await writer.close();
+
+        const response = new Response(stream.readable);
+        const compressedData = await response.arrayBuffer();
+
+        // Base64 encode
+        let binaryString = '';
+        const bytes = new Uint8Array(compressedData);
+        for (let i = 0; i < bytes.length; i++) {
+            binaryString += String.fromCharCode(bytes[i]);
+        }
+        const encoded = btoa(binaryString).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        await expect(decompressSequence(encoded)).rejects.toThrow(/Invalid shape type/);
+    });
   });
 });

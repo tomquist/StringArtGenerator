@@ -79,7 +79,8 @@ export async function compressSequence(
   let binaryString = '';
   const chunkSize = 8192;
   for (let i = 0; i < compressedData.length; i += chunkSize) {
-    binaryString += String.fromCharCode.apply(null, Array.from(compressedData.slice(i, i + chunkSize)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    binaryString += String.fromCharCode.apply(null, compressedData.slice(i, i + chunkSize) as any);
   }
 
   return btoa(binaryString)
@@ -137,6 +138,10 @@ export async function decompressSequence(encoded: string): Promise<CompressedSeq
 
   // V1
   const shapeType = view.getUint8(1);
+  if (shapeType !== 0 && shapeType !== 1) {
+    throw new Error(`Invalid shape type: expected 0 or 1, got ${shapeType}`);
+  }
+
   const width = view.getUint16(2);
   const height = view.getUint16(4);
   const numberOfPins = view.getUint16(6);
