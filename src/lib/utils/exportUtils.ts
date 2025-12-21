@@ -29,7 +29,7 @@ export function downloadSequenceTXT(result: StringArtResult) {
   const content = `String Art Pin Sequence
 Total Pins: ${result.parameters.numberOfPins}
 Total Lines: ${result.lineSequence.length}
-Thread Length: ${result.totalThreadLength.toFixed(2)} inches
+Thread Length: ${(result.totalThreadLength / 1000).toFixed(2)} m
 
 Pin Sequence:
 ${result.lineSequence.join(', ')}`;
