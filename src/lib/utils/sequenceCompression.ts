@@ -106,12 +106,18 @@ export async function decompressSequence(encoded: string): Promise<CompressedSeq
   const writer = stream.writable.getWriter();
 
   // Write in background to prevent deadlock
-  const writePromise = writer.write(compressedData).then(() => writer.close());
+  // We must catch errors here to prevent "Unhandled Rejection" if the read side fails first
+  const writePromise = writer.write(compressedData).then(() => writer.close()).catch(() => {});
 
   const response = new Response(stream.readable);
-  const decompressedBuffer = await response.arrayBuffer();
+  let decompressedBuffer: ArrayBuffer;
+  try {
+      decompressedBuffer = await response.arrayBuffer();
+  } catch (e) {
+      throw new Error('Decompression failed: Invalid Gzip data');
+  }
 
-  // Ensure write finished
+  // Ensure write finished (in case it failed silently above, though read would likely fail too)
   await writePromise;
 
   const decompressedBytes = new Uint8Array(decompressedBuffer);
