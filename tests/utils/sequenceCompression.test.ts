@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { compressSequence, decompressSequence } from '../../src/lib/utils/sequenceCompression';
 
-describe('Sequence Compression Utility V2', () => {
+describe('Sequence Compression Utility V1', () => {
   it('should compress and decompress with shape data', async () => {
     const sequence = [0, 10, 20, 30];
     const numberOfPins = 100;

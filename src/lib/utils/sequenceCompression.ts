@@ -1,7 +1,6 @@
 
 // Utility to compress and decompress pin sequences for URL sharing
-// Format V1: [16-bit NumPins] [16-bit Sequence...]
-// Format V2: [8-bit Version=2] [8-bit ShapeType] [16-bit Width] [16-bit Height] [16-bit NumPins] [16-bit Sequence...]
+// Format V1: [8-bit Version=1] [8-bit ShapeType] [16-bit Width] [16-bit Height] [16-bit NumPins] [16-bit Sequence...]
 // ShapeType: 0 = circle, 1 = rectangle
 
 export interface CompressedSequenceData {
@@ -19,13 +18,13 @@ export async function compressSequence(
   width: number = 500,
   height: number = 500
 ): Promise<string> {
-  // Use V2 format
+  // Use V1 format
   const headerSize = 8;
   const bufferLength = headerSize + (sequence.length * 2);
   const buffer = new Uint8Array(bufferLength);
   const view = new DataView(buffer.buffer);
 
-  view.setUint8(0, 2); // Version 2
+  view.setUint8(0, 1); // Version 1
   view.setUint8(1, shape === 'circle' ? 0 : 1);
   view.setUint16(2, width); // Big-endian by default in DataView
   view.setUint16(4, height);
@@ -96,22 +95,29 @@ export async function decompressSequence(encoded: string): Promise<CompressedSeq
   const decompressedBytes = new Uint8Array(decompressedBuffer);
   const view = new DataView(decompressedBytes.buffer);
 
-  // Check Version
-  if (decompressedBytes.length === 0) {
-      throw new Error('Empty sequence data');
+  // Validate Header Size
+  if (decompressedBytes.length < 8) {
+      throw new Error('Invalid sequence data: insufficient header length');
   }
 
+  // Check Version
   const firstByte = view.getUint8(0);
 
-  if (firstByte !== 2) {
-    throw new Error('Invalid data version or corrupted sequence');
+  if (firstByte !== 1) {
+    throw new Error(`Invalid data version: expected 1, got ${firstByte}`);
   }
 
-  // V2
+  // V1
   const shapeType = view.getUint8(1);
   const width = view.getUint16(2);
   const height = view.getUint16(4);
   const numberOfPins = view.getUint16(6);
+
+  // Validate Sequence Data Integrity
+  const sequenceBytes = decompressedBytes.length - 8;
+  if (sequenceBytes % 2 !== 0) {
+      throw new Error('Invalid sequence data: length mismatch for 16-bit sequence');
+  }
 
   const sequence: number[] = [];
   for (let i = 8; i < decompressedBytes.length; i += 2) {
