@@ -113,7 +113,7 @@ export async function decompressSequence(encoded: string): Promise<CompressedSeq
   let decompressedBuffer: ArrayBuffer;
   try {
       decompressedBuffer = await response.arrayBuffer();
-  } catch (e) {
+  } catch {
       throw new Error('Decompression failed: Invalid Gzip data');
   }
 
