@@ -18,6 +18,28 @@ export async function compressSequence(
   width: number = 500,
   height: number = 500
 ): Promise<string> {
+  // Input Validation
+  if (!Number.isInteger(numberOfPins) || numberOfPins < 0 || numberOfPins > 65535) {
+    throw new RangeError(`numberOfPins must be a uint16 integer. Got ${numberOfPins}`);
+  }
+  if (!Number.isInteger(width) || width < 0 || width > 65535) {
+    throw new RangeError(`width must be a uint16 integer. Got ${width}`);
+  }
+  if (!Number.isInteger(height) || height < 0 || height > 65535) {
+    throw new RangeError(`height must be a uint16 integer. Got ${height}`);
+  }
+  if (!Array.isArray(sequence)) {
+    throw new TypeError('sequence must be an array');
+  }
+
+  // Validate sequence values
+  for (let i = 0; i < sequence.length; i++) {
+    const val = sequence[i];
+    if (!Number.isInteger(val) || val < 0 || val > 65535) {
+      throw new RangeError(`Sequence value at index ${i} is invalid (must be uint16): ${val}`);
+    }
+  }
+
   // Use V1 format
   const headerSize = 8;
   const bufferLength = headerSize + (sequence.length * 2);
