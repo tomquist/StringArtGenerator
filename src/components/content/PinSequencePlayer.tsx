@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
-import { compressSequence } from '../../lib/utils/sequenceCompression';
+import { compressSequence, decompressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
 import {
   Play,
@@ -56,12 +56,25 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [importText, setImportText] = useState('');
   const [avgTimeMetric, setAvgTimeMetric] = useState<number | null>(null);
   const [sampleCount, setSampleCount] = useState(0);
+  const [compressedSeqString, setCompressedSeqString] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
+  const isPlayingRef = useRef(isPlaying);
+  const speedRef = useRef(speed);
+
+  // Sync refs with state
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   // Constants
   // Average speech time per number at 1x speed is approx 0.8s (e.g. "one hundred twenty three")
@@ -202,22 +215,33 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, [selectedVoice]);
 
-  // URL Sync
+  // Update compressed sequence string when inputs change
   useEffect(() => {
-    const updateUrl = async () => {
+    let active = true;
+    const compress = async () => {
       try {
         const compressed = await compressSequence(sequence, numberOfPins, shape, width, height);
-        const url = new URL(window.location.href);
-        url.searchParams.set('seq', compressed);
-        url.searchParams.set('step', currentStep.toString());
-        window.history.replaceState({}, '', url.toString());
+        if (active) {
+          setCompressedSeqString(compressed);
+        }
       } catch (e) {
-        console.error('Failed to update URL state', e);
+        console.error('Failed to compress sequence', e);
       }
     };
-    const timer = setTimeout(updateUrl, 500);
-    return () => clearTimeout(timer);
-  }, [currentStep, sequence, numberOfPins, shape, width, height]);
+
+    const timer = setTimeout(compress, 500); // Debounce compression
+    return () => { active = false; clearTimeout(timer); };
+  }, [sequence, numberOfPins, shape, width, height]);
+
+  // URL Sync
+  useEffect(() => {
+    if (!compressedSeqString) return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('seq', compressedSeqString);
+    url.searchParams.set('step', currentStep.toString());
+    window.history.replaceState({}, '', url.toString());
+  }, [currentStep, compressedSeqString]);
 
   // Playback Logic
   const speakPin = (pinIndex: number) => {
@@ -230,11 +254,24 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.rate = speed;
     utterance.pitch = 1.0;
     utterance.onend = () => {
-      if (isPlaying) {
-         const delay = Math.max(500, 1500 / speed);
+      // Use ref to check current playing state to avoid stale closure issues
+      if (isPlayingRef.current) {
+         const currentSpeed = speedRef.current;
+         const delay = Math.max(500, 1500 / currentSpeed);
          timeoutRef.current = setTimeout(() => {
-           if (currentStep < sequence.length - 1) {
-             setCurrentStep(prev => prev + 1);
+           // We are in a timeout, so we should check again if still playing?
+           // The cleanup clears timeout, so if we are here, we are good.
+           // But `currentStep` here is stale (from closure).
+           // We use functional update for setCurrentStep, which is fine.
+           // But the condition `currentStep < sequence.length - 1` uses stale `currentStep`.
+           // This is tricky.
+           // However, the effect `useEffect(() => { if (isPlaying) speakPin... }, [currentStep])`
+           // handles the loop. `speakPin` is called for a specific step.
+           // The callback updates state to trigger next step.
+           // We need to know if the *current* step is the last one.
+           // The closure `pinIndex` matches the step we just spoke.
+           if (pinIndex < sequence.length - 1) {
+             setCurrentStep(pinIndex + 1); // Explicitly move to next from current closure index
            } else {
              setIsPlaying(false);
            }
@@ -353,19 +390,18 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
   };
 
-  const handleImportSubmit = () => {
-    import('../../lib/utils/sequenceCompression').then(async ({ decompressSequence }) => {
-        try {
-          const data = await decompressSequence(importText);
-          if (onImport) {
-              onImport(data.sequence, data.numberOfPins, data.shape, data.width, data.height);
-              setImportText('');
-              setShowImport(false);
-          }
-        } catch {
-          alert('Invalid Share Code');
-        }
-    });
+  const handleImportSubmit = async () => {
+    try {
+      setError(null);
+      const data = await decompressSequence(importText);
+      if (onImport) {
+          onImport(data.sequence, data.numberOfPins, data.shape, data.width, data.height);
+          setImportText('');
+          setShowImport(false);
+      }
+    } catch {
+      setError('Invalid Share Code');
+    }
   };
 
   const remainingSteps = sequence.length - currentStep - 1;
@@ -436,6 +472,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                width={200}
                height={200}
                className="w-full h-full"
+               role="img"
+               aria-label={`Visualization of pin ${sequence[currentStep]} position on the frame`}
              />
              <div className="absolute top-2 right-2 text-[10px] text-muted-foreground bg-white/80 px-1 rounded">
                {shape === 'rectangle' ? `${width}x${height}` : `Ø${width}`}
@@ -538,6 +576,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           {searchMessage && (
             <p className={`text-xs ${searchMessage.includes('Found') ? 'text-green-600' : 'text-amber-600'}`}>
               {searchMessage}
+            </p>
+          )}
+          {error && (
+            <p className="text-xs text-red-600 font-medium">
+              {error}
             </p>
           )}
         </div>

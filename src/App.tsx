@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { jsPDF } from 'jspdf'
 import { generateStringArt } from './lib/algorithms/stringArtEngine'
 import type { StringArtResult, OptimizationProgress, StringArtShape } from './types'
@@ -99,7 +99,7 @@ function App() {
   const [initialStep, setInitialStep] = useState(0)
 
   // Helper to load sequence data into a synthetic result
-  const loadSequenceData = (
+  const loadSequenceData = useCallback((
     sequence: number[],
     decodedPins: number,
     shape: 'circle' | 'rectangle' = 'circle',
@@ -155,7 +155,7 @@ function App() {
       setTimeout(() => {
         document.getElementById('pin-sequence-player')?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
-  };
+  }, []); // Dependencies are setters which are stable
 
   // URL State Handling
   useEffect(() => {
@@ -184,7 +184,7 @@ function App() {
     };
 
     checkUrlParams();
-  }, []);
+  }, [loadSequenceData]);
 
   const [importString, setImportString] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -1717,7 +1717,7 @@ ${result.lineSequence.join(', ')}`
                       disabled={!importString || isImporting}
                       className="w-full"
                     >
-                      {isImporting ? 'Load Sequence' : 'Load Sequence'}
+                      {isImporting ? 'Loading...' : 'Load Sequence'}
                     </Button>
                   </div>
                 </CardContent>
