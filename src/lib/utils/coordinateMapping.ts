@@ -16,7 +16,7 @@ export function calculateCoordinateMapping(
   height: number = 0,
   targetWidth: number,
   targetHeight: number
-) {
+): { pixelW: number; pixelH: number; scaleX: number; scaleY: number; offsetX: number; offsetY: number } {
   let pixelW = imgSize;
   let pixelH = imgSize;
 

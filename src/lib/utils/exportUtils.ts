@@ -65,7 +65,10 @@ export function downloadTemplatePNG(result: StringArtResult) {
   const canvas = document.createElement('canvas');
   canvas.width = canvasW;
   canvas.height = canvasH;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Failed to get 2D canvas context for template export');
+  }
 
   // Fill white background
   ctx.fillStyle = 'white';
@@ -273,7 +276,10 @@ export async function downloadPDF(result: StringArtResult, frameDiameter: number
   const canvas = document.createElement('canvas');
   canvas.width = canvasW;
   canvas.height = canvasH;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Failed to get 2D canvas context for PDF export');
+  }
 
   // Fill white background
   ctx.fillStyle = 'white';
