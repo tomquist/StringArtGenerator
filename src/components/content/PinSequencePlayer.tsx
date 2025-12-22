@@ -177,6 +177,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
+      ctx.beginPath();
       for (let i = 0; i < currentStep; i++) {
         const pin1Idx = sequence[i];
         const pin2Idx = sequence[i + 1];
@@ -189,12 +190,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           const p2x = offsetX + pin2[0] * scale;
           const p2y = offsetY + pin2[1] * scale;
 
-          ctx.beginPath();
           ctx.moveTo(p1x, p1y);
           ctx.lineTo(p2x, p2y);
-          ctx.stroke();
         }
       }
+      ctx.stroke();
     }
 
     // Draw all pins (faded)
