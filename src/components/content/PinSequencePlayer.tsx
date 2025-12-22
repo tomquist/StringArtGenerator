@@ -529,10 +529,17 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
               Est. remaining: {sampleCount < 5 ? "Calculating..." : formatTime(estimatedSeconds)}
             </div>
 
-            <div className="w-full h-2 bg-muted rounded-full mt-4 overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${((currentStep + 1) / sequence.length) * 100}%` }}
+            <div className="w-full mt-4">
+              <input
+                type="range"
+                min={0}
+                max={sequence.length - 1}
+                value={currentStep}
+                onChange={(e) => setCurrentStep(parseInt(e.target.value, 10))}
+                className="w-full accent-primary cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${((currentStep + 1) / sequence.length) * 100}%, hsl(var(--muted)) ${((currentStep + 1) / sequence.length) * 100}%, hsl(var(--muted)) 100%)`
+                }}
               />
             </div>
           </div>
