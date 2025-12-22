@@ -172,8 +172,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
     // Draw progress lines (from start to current step)
     if (currentStep > 0) {
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 0.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
