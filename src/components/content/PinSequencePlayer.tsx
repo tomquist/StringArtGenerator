@@ -170,6 +170,45 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
     ctx.stroke();
 
+    // Draw progress lines (from start to current step)
+    if (currentStep > 0) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      for (let i = 0; i < currentStep; i++) {
+        const pin1Idx = sequence[i];
+        const pin2Idx = sequence[i + 1];
+        const pin1 = pinCoordinates[pin1Idx];
+        const pin2 = pinCoordinates[pin2Idx];
+
+        if (pin1 && pin2) {
+          const p1x = offsetX + pin1[0] * scale;
+          const p1y = offsetY + pin1[1] * scale;
+          const p2x = offsetX + pin2[0] * scale;
+          const p2y = offsetY + pin2[1] * scale;
+
+          ctx.beginPath();
+          ctx.moveTo(p1x, p1y);
+          ctx.lineTo(p2x, p2y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw all pins (faded)
+    ctx.fillStyle = 'rgba(156, 163, 175, 0.3)'; // gray-400 with opacity
+    pinCoordinates.forEach((pin) => {
+      if (pin) {
+        const px = offsetX + pin[0] * scale;
+        const py = offsetY + pin[1] * scale;
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
+
     // Draw Current Pin
     const currentPinIdx = sequence[currentStep];
     const pin = pinCoordinates[currentPinIdx];
