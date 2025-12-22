@@ -170,6 +170,45 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
     ctx.stroke();
 
+    // Draw progress lines (from start to current step)
+    if (currentStep > 0) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 0.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      for (let i = 0; i < currentStep; i++) {
+        const pin1Idx = sequence[i];
+        const pin2Idx = sequence[i + 1];
+        const pin1 = pinCoordinates[pin1Idx];
+        const pin2 = pinCoordinates[pin2Idx];
+
+        if (pin1 && pin2) {
+          const p1x = offsetX + pin1[0] * scale;
+          const p1y = offsetY + pin1[1] * scale;
+          const p2x = offsetX + pin2[0] * scale;
+          const p2y = offsetY + pin2[1] * scale;
+
+          ctx.moveTo(p1x, p1y);
+          ctx.lineTo(p2x, p2y);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Draw all pins (faded)
+    ctx.fillStyle = 'rgba(156, 163, 175, 0.3)'; // gray-400 with opacity
+    pinCoordinates.forEach((pin) => {
+      if (pin) {
+        const px = offsetX + pin[0] * scale;
+        const py = offsetY + pin[1] * scale;
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
+
     // Draw Current Pin
     const currentPinIdx = sequence[currentStep];
     const pin = pinCoordinates[currentPinIdx];
@@ -490,10 +529,17 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
               Est. remaining: {sampleCount < 5 ? "Calculating..." : formatTime(estimatedSeconds)}
             </div>
 
-            <div className="w-full h-2 bg-muted rounded-full mt-4 overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${((currentStep + 1) / sequence.length) * 100}%` }}
+            <div className="w-full mt-4">
+              <input
+                type="range"
+                min={0}
+                max={sequence.length - 1}
+                value={currentStep}
+                onChange={(e) => setCurrentStep(parseInt(e.target.value, 10))}
+                className="w-full accent-primary cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${((currentStep + 1) / sequence.length) * 100}%, hsl(var(--muted)) ${((currentStep + 1) / sequence.length) * 100}%, hsl(var(--muted)) 100%)`
+                }}
               />
             </div>
           </div>
