@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" >
+    <link rel="icon" type="image/svg+xml" href="/StringArtGenerator/pr-preview/pr-15/favicon.svg" >
+    <link rel="icon" type="image/x-icon" href="/StringArtGenerator/pr-preview/pr-15/favicon.ico" >
+    <link rel="apple-touch-icon" sizes="180x180" href="/StringArtGenerator/pr-preview/pr-15/favicon.svg" >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" >
+    
+    <!-- SEO Meta Tags -->
+    <title>String Art Generator - Transform Photos to String Art</title>
+    <meta name="keywords" content="string art generator, free online tool, photo to string art, mathematical art, DIY string art" >
+    <meta name="author" content="String Art Generator" >
+    <meta name="robots" content="index, follow" >
+    <link rel="canonical" href="https://stringartgenerator.co/" >
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="String Art Generator - Transform Photos into Mathematical String Art" >
+    <meta property="og:description" content="Create stunning string art from your photos using our advanced algorithmic generator. Transform images into mathematical masterpieces with customizable presets." >
+    <meta property="og:type" content="website" >
+    <meta property="og:url" content="https://stringartgenerator.co" >
+    <meta property="og:image" content="https://stringartgenerator.co/og-image.png" >
+    <meta property="og:image:width" content="1200" >
+    <meta property="og:image:height" content="630" >
+    <meta property="og:site_name" content="String Art Generator" >
+    <meta property="og:locale" content="en_US" >
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" >
+    <meta name="twitter:title" content="String Art Generator - Transform Photos into Mathematical String Art" >
+    <meta name="twitter:description" content="Create stunning string art from your photos using our advanced algorithmic generator. Perfect for educators, artists, and DIY enthusiasts." >
+    <meta name="twitter:image" content="https://stringartgenerator.co/og-image.png" >
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "String Art Generator",
+      "description": "Advanced algorithmic tool for converting photos into mathematical string art patterns. Features customizable presets, real-time generation, and educational content.",
+      "url": "https://stringartgenerator.co",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "String Art Generator"
+      },
+      "keywords": "string art, mathematical art, algorithmic art, photo conversion, DIY crafts, educational tools",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "127"
+      }
+    }
+    </script>
+    
+    <!-- Google tag (gtag.js) -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KL6930TBFL"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-KL6930TBFL');
+    </script>
+
+    <!-- Microsoft Clarity -->
+    <script type="text/javascript">
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "tql0ypim0d");
+    </script>
+
+    <style>
+      /* Loading overlay - shows immediately on page load */
+      #loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transition: opacity 300ms ease-out;
+      }
+      
+      #loading-overlay.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loading-content {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+      }
+      
+      .logo-spinner {
+        font-size: 4rem;
+        animation: spin 2s linear infinite;
+      }
+      
+      .progress-bar {
+        width: 240px;
+        height: 4px;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      
+      .progress-fill {
+        height: 100%;
+        background: rgb(59, 130, 246);
+        border-radius: 2px;
+        animation: progress 2s ease-in-out infinite;
+      }
+
+      /* Error state styles */
+      #loading-overlay.error .progress-bar {
+        background: rgba(239, 68, 68, 0.1);
+      }
+      #loading-overlay.error .progress-fill {
+        background: rgb(239, 68, 68);
+        animation: none;
+        width: 100%;
+      }
+      .error-message {
+        display: none;
+        color: rgb(239, 68, 68);
+        margin-top: 1rem;
+        font-family: system-ui, sans-serif;
+        max-width: 300px;
+        word-wrap: break-word;
+      }
+      #loading-overlay.error .error-message {
+        display: block;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      @keyframes progress {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+      }
+    </style>
+    <script type="module" crossorigin src="/StringArtGenerator/pr-preview/pr-15/assets/js/index-D9CLlx99.js"></script>
+    <link rel="modulepreload" crossorigin href="/StringArtGenerator/pr-preview/pr-15/assets/js/index-CPPIKvJG.js">
+    <link rel="stylesheet" crossorigin href="/StringArtGenerator/pr-preview/pr-15/assets/css/index-DS4_AUrU.css">
+  <meta name="description" content="Transform photos into stunning string art using advanced algorithms. Generate mathematical patterns with customizable pins and lines for physical artwork.">
+<meta name="keywords" content="string art generator, free online tool, photo to string art, mathematical art, DIY string art">
+<meta property="og:title" content="String Art Generator - Transform Photos to String Art">
+<meta property="og:description" content="Transform photos into stunning string art using advanced algorithms. Generate mathematical patterns with customizable pins and lines for physical artwork.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="String Art Generator - Transform Photos to String Art">
+<meta name="twitter:description" content="Transform photos into stunning string art using advanced algorithms. Generate mathematical patterns with customizable pins and lines for physical artwork.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<style></style></head>
+  <body>
+    <!-- Global Error Handler -->
+    <script>
+      window.addEventListener('error', function(event) {
+        console.error('Global Error caught:', event.error);
+        const overlay = document.getElementById('loading-overlay');
+        const errorMsg = document.getElementById('global-error-message');
+        if (overlay && errorMsg) {
+          overlay.classList.add('error');
+          errorMsg.textContent = 'Something went wrong: ' + (event.message || 'Unknown error');
+        }
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled Rejection:', event.reason);
+        const overlay = document.getElementById('loading-overlay');
+        const errorMsg = document.getElementById('global-error-message');
+        if (overlay && errorMsg) {
+          overlay.classList.add('error');
+          errorMsg.textContent = 'Failed to load: ' + (event.reason ? event.reason.toString() : 'Unknown error');
+        }
+      });
+    </script>
+
+    <!-- Loading overlay - removed by React -->
+    <div id="loading-overlay">
+      <div class="loading-content">
+        <div class="logo-spinner">
+          <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- String Art Generator Logo -->
+            <circle cx="16" cy="16" r="15" fill="#4f46e5" stroke="#ffffff" stroke-width="1"></circle>
+            
+            <!-- Pins around the circle -->
+            <circle cx="16" cy="2" r="1" fill="#ffffff"></circle>
+            <circle cx="27" cy="8" r="1" fill="#ffffff"></circle>
+            <circle cx="30" cy="16" r="1" fill="#ffffff"></circle>
+            <circle cx="27" cy="24" r="1" fill="#ffffff"></circle>
+            <circle cx="16" cy="30" r="1" fill="#ffffff"></circle>
+            <circle cx="5" cy="24" r="1" fill="#ffffff"></circle>
+            <circle cx="2" cy="16" r="1" fill="#ffffff"></circle>
+            <circle cx="5" cy="8" r="1" fill="#ffffff"></circle>
+            
+            <!-- String lines creating an artistic pattern -->
+            <line x1="16" y1="2" x2="27" y2="24" stroke="#ffffff" stroke-width="0.5" opacity="0.8"></line>
+            <line x1="27" y1="8" x2="5" y2="24" stroke="#ffffff" stroke-width="0.5" opacity="0.8"></line>
+            <line x1="30" y1="16" x2="5" y2="8" stroke="#ffffff" stroke-width="0.5" opacity="0.8"></line>
+            <line x1="27" y1="24" x2="2" y2="16" stroke="#ffffff" stroke-width="0.5" opacity="0.8"></line>
+            <line x1="16" y1="30" x2="16" y2="2" stroke="#ffffff" stroke-width="0.5" opacity="0.6"></line>
+            <line x1="5" y1="24" x2="27" y2="8" stroke="#ffffff" stroke-width="0.5" opacity="0.6"></line>
+            <line x1="2" y1="16" x2="30" y2="16" stroke="#ffffff" stroke-width="0.5" opacity="0.6"></line>
+            
+            <!-- Center focal point -->
+            <circle cx="16" cy="16" r="2" fill="#ffffff" opacity="0.9"></circle>
+          </svg>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+        <div id="global-error-message" class="error-message"></div>
+      </div>
+    </div>
+    
+    <div id="root">
+      <div itemscope itemtype="https://schema.org/WebApplication">
+        <header>
+          <nav aria-label="Main navigation">
+            <ul>
+              <li><a href="#generator">Generator</a></li>
+              <li><a href="#gallery">Gallery</a></li>
+              <li><a href="#tutorial">Tutorial</a></li>
+              <li><a href="#faq">FAQ</a></li>
+            </ul>
+          </nav>
+        </header>
+        
+        <main>
+          <section id="generator">
+            <h1 itemprop="name">String Art Generator - Convert Photos to Mathematical String Art</h1>
+            <p itemprop="description">Transform your photos into beautiful mathematical string art using advanced algorithms and customizable presets. Perfect for educators, artists, and DIY enthusiasts.</p>
+            
+            <div class="features">
+              <h2>Features</h2>
+              <ul>
+                <li>Convert photo to string art using algorithmic optimization</li>
+                <li>Mathematical string art with precise calculations</li>
+                <li>Educational tool for art and mathematics intersection</li>
+                <li>DIY string art patterns for physical creation</li>
+                <li>Customizable pins, lines, and artistic presets</li>
+                <li>Real-time generation with progress tracking</li>
+              </ul>
+            </div>
+          </section>
+          
+          <section id="tutorial">
+            <h2>How to Create String Art</h2>
+            <p>Transform your photos into mathematical masterpieces with our step-by-step guide</p>
+            
+              <article class="tutorial-step">
+                <h3>Upload Your Image</h3>
+                <p class="description">Choose a high-contrast photo for the best string art results</p>
+                <p class="content">Click or drag your image into the upload area. The best images for string art are high-contrast photos with clear subjects - portraits, silhouettes, and bold graphics work exceptionally well.</p>
+              </article>
+            
+              <article class="tutorial-step">
+                <h3>Choose a Style Preset</h3>
+                <p class="description">Select from our optimized presets or customize your own settings</p>
+                <p class="content">Pick from four carefully tuned presets designed for different effects: Fine Detail for precision work, Bold Impact for dramatic results, Soft Portrait for gentle rendering, or Professional for balanced quality.</p>
+              </article>
+            
+              <article class="tutorial-step">
+                <h3>Generate Your String Art</h3>
+                <p class="description">Watch as the algorithm creates your mathematical masterpiece</p>
+                <p class="content">Click 'Generate String Art' to start the process. You'll see real-time progress as the algorithm calculates optimal string paths and draws lines progressively on the canvas.</p>
+              </article>
+            
+              <article class="tutorial-step">
+                <h3>View & Save Your Creation</h3>
+                <p class="description">Admire your string art and save it for physical creation</p>
+                <p class="content">Once generation is complete, you'll see your finished string art along with detailed statistics. The result shows exactly how the physical piece would look with real string and pins.</p>
+              </article>
+            
+          </section>
+          
+          <section id="faq">
+            <h2>Frequently Asked Questions</h2>
+            <p>Find answers to common questions about string art generation</p>
+            
+              <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+                <h3 itemprop="name">What is string art and how does this generator work?</h3>
+                <div itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+                  <p itemprop="text">String art is a traditional craft where thread is wound between pins to create images. Our generator uses computer algorithms to analyze your photo and calculate the optimal sequence of lines between pins that will recreate your image using just thread.</p>
+                </div>
+              </article>
+            
+              <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+                <h3 itemprop="name">What types of images work best for string art?</h3>
+                <div itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+                  <p itemprop="text">High contrast images with clear light and dark areas work best. Portraits, architectural photos, and images with defined shadows produce excellent results. Avoid very busy or low-contrast images as they may not translate well to the limited resolution of string art.</p>
+                </div>
+              </article>
+            
+              <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+                <h3 itemprop="name">How many pins should I use?</h3>
+                <div itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+                  <p itemprop="text">For beginners, start with 144-216 pins for a good balance of detail and complexity. More pins (288-360) allow finer detail but require more precision. Fewer pins (36-120) create bold, minimalist designs that are easier to recreate physically.</p>
+                </div>
+              </article>
+            
+              <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+                <h3 itemprop="name">Why is my result blank or very light?</h3>
+                <div itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+                  <p itemprop="text">This usually means your image has low contrast or the settings don't match your image type. Try increasing the line weight, adding more lines, or choosing an image with stronger contrast between light and dark areas.</p>
+                </div>
+              </article>
+            
+              <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+                <h3 itemprop="name">How do I recreate this physically?</h3>
+                <div itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+                  <p itemprop="text">You'll need a circular frame, pins/nails, and thread. Mark pin positions evenly around your frame, then follow the generated line sequence, winding thread from pin to pin in order. The downloadable result shows the complete pattern.</p>
+                </div>
+              </article>
+            
+          </section>
+          
+          <section id="gallery">
+            <h2>String Art Gallery</h2>
+            <p>Examples and inspiration from our string art generator</p>
+            <div class="gallery-preview">
+              <p>Explore stunning mathematical string art creations generated by our advanced algorithms. From portraits to abstract designs, see the intersection of mathematics and art.</p>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer style="
+      position: relative;
+      bottom: 0;
+      width: 100%;
+      padding: 2rem 1rem;
+      text-align: center;
+      background: hsl(0 0% 100%);
+      border-top: 1px solid hsl(214.3 31.8% 91.4%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.875rem;
+      color: hsl(215.4 16.3% 46.9%);
+      z-index: 10;
+    ">
+      <div style="
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+      ">
+        <div style="
+          display: flex;
+          gap: 2rem;
+          flex-wrap: wrap;
+          justify-content: center;
+          align-items: center;
+        ">
+        </div>
+        <div style="
+          font-size: 0.75rem;
+          color: hsl(215.4 16.3% 46.9%);
+          text-align: center;
+        ">
+          © 2025 String Art Generator. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
