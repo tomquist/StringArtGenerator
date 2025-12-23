@@ -194,6 +194,24 @@ export function downloadTemplatePNG(result: StringArtResult) {
 }
 
 /**
+ * Add page number to the current page
+ */
+function addPageNumber(doc: jsPDF, pageNum: number, totalPages: number) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(
+    `Page ${pageNum} of ${totalPages}`,
+    pageWidth / 2,
+    pageHeight - 10,
+    { align: 'center' }
+  );
+  doc.setTextColor(0);
+}
+
+/**
  * Download comprehensive PDF with report, image, template, and sequence
  */
 export async function downloadPDF(result: StringArtResult, frameDiameter: number) {
@@ -491,6 +509,13 @@ export async function downloadPDF(result: StringArtResult, frameDiameter: number
       doc.addPage();
       y = margin;
     }
+  }
+
+  // Add page numbers to all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    addPageNumber(doc, i, totalPages);
   }
 
   doc.save(`string-art-plan-${frameDiameter}mm-${Date.now()}.pdf`);
