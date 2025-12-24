@@ -79,10 +79,28 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
   // Manage screen wake lock
   useEffect(() => {
+    let isMounted = true;
+
+    const handleWakeLockRelease = () => {
+      wakeLockRef.current = null;
+      console.log('Screen wake lock auto-released by browser');
+    };
+
     const requestWakeLock = async () => {
       try {
-        if ('wakeLock' in navigator && isPlaying) {
-          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        if ('wakeLock' in navigator && isPlayingRef.current) {
+          const wakeLock = await navigator.wakeLock.request('screen');
+
+          // Check if still playing after async operation completes
+          if (!isPlayingRef.current || !isMounted) {
+            // User paused during the request, release immediately
+            await wakeLock.release();
+            console.log('Screen wake lock released (paused during request)');
+            return;
+          }
+
+          wakeLockRef.current = wakeLock;
+          wakeLock.addEventListener('release', handleWakeLockRelease);
           console.log('Screen wake lock acquired');
         }
       } catch (err) {
@@ -93,6 +111,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     const releaseWakeLock = async () => {
       if (wakeLockRef.current) {
         try {
+          wakeLockRef.current.removeEventListener('release', handleWakeLockRelease);
           await wakeLockRef.current.release();
           wakeLockRef.current = null;
           console.log('Screen wake lock released');
@@ -110,6 +129,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
     // Cleanup on unmount
     return () => {
+      isMounted = false;
       releaseWakeLock();
     };
   }, [isPlaying]);
