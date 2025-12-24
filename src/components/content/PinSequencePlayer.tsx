@@ -66,6 +66,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   // Sync refs with state
   useEffect(() => {
@@ -75,6 +76,43 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+
+  // Manage screen wake lock
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && isPlaying) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+          console.log('Screen wake lock acquired');
+        }
+      } catch (err) {
+        console.error('Failed to acquire wake lock:', err);
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+          console.log('Screen wake lock released');
+        } catch (err) {
+          console.error('Failed to release wake lock:', err);
+        }
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      releaseWakeLock();
+    };
+  }, [isPlaying]);
 
   // Constants
   // Average speech time per number at 1x speed is approx 0.8s (e.g. "one hundred twenty three")
