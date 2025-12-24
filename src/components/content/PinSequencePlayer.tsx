@@ -100,7 +100,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           wakeLockRef.current = wakeLock;
           wakeLock.addEventListener('release', handleWakeLockRelease);
         }
-      } catch (err) {
+      } catch {
         // Silently handle wake lock errors (not supported or permission denied)
       }
     };
@@ -111,7 +111,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           wakeLockRef.current.removeEventListener('release', handleWakeLockRelease);
           await wakeLockRef.current.release();
           wakeLockRef.current = null;
-        } catch (err) {
+        } catch {
           // Silently handle release errors
         }
       }
