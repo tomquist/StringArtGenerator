@@ -83,7 +83,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
     const handleWakeLockRelease = () => {
       wakeLockRef.current = null;
-      console.log('Screen wake lock auto-released by browser');
     };
 
     const requestWakeLock = async () => {
@@ -95,16 +94,14 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           if (!isPlayingRef.current || !isMounted) {
             // User paused during the request, release immediately
             await wakeLock.release();
-            console.log('Screen wake lock released (paused during request)');
             return;
           }
 
           wakeLockRef.current = wakeLock;
           wakeLock.addEventListener('release', handleWakeLockRelease);
-          console.log('Screen wake lock acquired');
         }
       } catch (err) {
-        console.error('Failed to acquire wake lock:', err);
+        // Silently handle wake lock errors (not supported or permission denied)
       }
     };
 
@@ -114,9 +111,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           wakeLockRef.current.removeEventListener('release', handleWakeLockRelease);
           await wakeLockRef.current.release();
           wakeLockRef.current = null;
-          console.log('Screen wake lock released');
         } catch (err) {
-          console.error('Failed to release wake lock:', err);
+          // Silently handle release errors
         }
       }
     };
