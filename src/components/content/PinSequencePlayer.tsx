@@ -66,6 +66,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   // Sync refs with state
   useEffect(() => {
@@ -75,6 +76,59 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+
+  // Manage screen wake lock
+  useEffect(() => {
+    let isMounted = true;
+
+    const handleWakeLockRelease = () => {
+      wakeLockRef.current = null;
+    };
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && isPlayingRef.current) {
+          const wakeLock = await navigator.wakeLock.request('screen');
+
+          // Check if still playing after async operation completes
+          if (!isPlayingRef.current || !isMounted) {
+            // User paused during the request, release immediately
+            await wakeLock.release();
+            return;
+          }
+
+          wakeLockRef.current = wakeLock;
+          wakeLock.addEventListener('release', handleWakeLockRelease);
+        }
+      } catch {
+        // Silently handle wake lock errors (not supported or permission denied)
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          wakeLockRef.current.removeEventListener('release', handleWakeLockRelease);
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch {
+          // Silently handle release errors
+        }
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      isMounted = false;
+      releaseWakeLock();
+    };
+  }, [isPlaying]);
 
   // Constants
   // Average speech time per number at 1x speed is approx 0.8s (e.g. "one hundred twenty three")
