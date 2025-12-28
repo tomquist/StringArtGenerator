@@ -340,6 +340,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const isPlayingRef = useRef(state.isPlaying);
   const speedRef = useRef(state.speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const voiceControlRef = useRef(state.voiceControl);
 
   // Speech Recognition Hook - simplified to just wrap the browser API
   const speechRecognition = useSpeechRecognition({
@@ -355,11 +356,14 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     onUnexpectedEnd: () => {
       // Recognition ended unexpectedly - restart if still in LISTENING phase
       // This happens when browser ends continuous mode after a result
-      if (state.voiceControl.phase === 'LISTENING' && state.voiceControl.listeningForPinIndex !== null) {
+      // Use ref to get current values, not captured closure values
+      const currentVoiceControl = voiceControlRef.current;
+      if (currentVoiceControl.phase === 'LISTENING' && currentVoiceControl.listeningForPinIndex !== null) {
         // Small delay before restarting to avoid rapid restart loops
         setTimeout(() => {
-          if (state.voiceControl.phase === 'LISTENING' && state.voiceControl.listeningForPinIndex !== null) {
-            speechRecognition.startListening(state.voiceControl.listeningForPinIndex);
+          const vc = voiceControlRef.current;
+          if (vc.phase === 'LISTENING' && vc.listeningForPinIndex !== null) {
+            speechRecognition.startListening(vc.listeningForPinIndex);
           }
         }, 100);
       }
@@ -374,6 +378,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     speedRef.current = state.speed;
   }, [state.speed]);
+
+  useEffect(() => {
+    voiceControlRef.current = state.voiceControl;
+  }, [state.voiceControl]);
 
   // Update status message when mode/keyword changes during LISTENING
   useEffect(() => {
@@ -439,15 +447,18 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         const delay = Math.max(0, state.voiceControl.scheduledListenTime - now);
         const timeoutId = setTimeout(() => {
           // Double-check we're still in WAITING phase (may have changed)
-          if (state.voiceControl.phase === 'WAITING_TO_LISTEN' && state.isPlaying) {
-            const pinIndex = state.voiceControl.listeningForPinIndex!;
+          // Use refs to get current values, not captured closure values
+          const vc = voiceControlRef.current;
+          const playing = isPlayingRef.current;
+          if (vc.phase === 'WAITING_TO_LISTEN' && playing) {
+            const pinIndex = vc.listeningForPinIndex!;
             const expectedNumber = sequence[pinIndex];
-            const expected = state.voiceControl.mode === 'number' ? expectedNumber : state.voiceControl.keyword;
+            const expected = vc.mode === 'number' ? expectedNumber : vc.keyword;
             dispatch({
               type: 'VOICE_CONTROL_START_LISTENING',
               payload: {
                 pinIndex,
-                statusMessage: `Waiting for ${state.voiceControl.mode === 'number' ? `"${expected}"` : `"${expected}"`}...`
+                statusMessage: `Waiting for ${vc.mode === 'number' ? `"${expected}"` : `"${expected}"`}...`
               }
             });
           }
