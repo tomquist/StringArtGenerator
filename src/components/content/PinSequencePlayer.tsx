@@ -456,20 +456,24 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.rate = state.speed;
     utterance.pitch = 1.0;
 
-    // If speech recognition is enabled, start listening BEFORE speaking
-    // This ensures the user can respond immediately when they hear the number
-    if (speechRecognition.speechRecognitionEnabled && !speechRecognition.isListening) {
-      speechRecognition.startListening(pinIndex);
-    } else if (speechRecognition.speechRecognitionEnabled && speechRecognition.isListening) {
-      // Already listening in continuous mode, just update the expected pin
-      speechRecognition.updateExpectedPin(pinIndex);
-    }
-
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         // If speech recognition is NOT enabled, auto-advance
-         if (!speechRecognitionEnabledRef.current) {
+         // If speech recognition IS enabled, start listening AFTER speaking
+         // with a small delay to avoid picking up the synthesized voice
+         if (speechRecognitionEnabledRef.current) {
+           setTimeout(() => {
+             if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
+               if (!speechRecognition.isListening) {
+                 speechRecognition.startListening(pinIndex);
+               } else {
+                 // Already listening in continuous mode, just update the expected pin
+                 speechRecognition.updateExpectedPin(pinIndex);
+               }
+             }
+           }, 300); // 300ms delay to avoid picking up synthesized voice
+         } else {
+           // If speech recognition is NOT enabled, auto-advance
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
            timeoutRef.current = setTimeout(() => {
@@ -480,8 +484,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              }
            }, delay);
          }
-         // If speech recognition IS enabled, we're already listening in continuous mode
-         // The onresult handler will advance when it hears the correct word
       }
     };
     utteranceRef.current = utterance;
