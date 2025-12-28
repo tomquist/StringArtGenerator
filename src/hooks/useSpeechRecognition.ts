@@ -182,7 +182,9 @@ export function useSpeechRecognition({
         }
       } else {
         // Check if transcript contains the confirmation keyword
-        isMatch = transcript.includes(currentKeyword.toLowerCase());
+        // Validate keyword is not empty (empty string matches everything with includes)
+        const trimmedKeyword = currentKeyword.trim().toLowerCase();
+        isMatch = trimmedKeyword.length > 0 && transcript.includes(trimmedKeyword);
       }
 
       if (isMatch) {

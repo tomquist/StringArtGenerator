@@ -161,6 +161,8 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
     // Voice Control State Machine (Validated, tested in voiceControlStateMachine.test.ts)
     case 'VOICE_CONTROL_ENABLE':
       if (state.voiceControl.enabled) return state; // Already enabled
+      // Prevent enabling if in keyword mode with empty keyword
+      if (state.voiceControl.mode === 'keyword' && state.voiceControl.keyword.trim().length === 0) return state;
       return {
         ...state,
         voiceControl: {
@@ -200,12 +202,13 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
 
     case 'VOICE_CONTROL_SET_KEYWORD':
       // Can change keyword anytime when enabled (phase unchanged)
+      // Trim the keyword but allow setting it (validation happens at use time)
       if (!state.voiceControl.enabled) return state;
       return {
         ...state,
         voiceControl: {
           ...state.voiceControl,
-          keyword: action.payload
+          keyword: action.payload.trim()
         }
       };
 
@@ -229,7 +232,9 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
 
     case 'VOICE_CONTROL_START_LISTENING':
       // Can only start listening from WAITING_TO_LISTEN phase
+      // Validate keyword is not empty when in keyword mode
       if (!state.voiceControl.enabled || state.voiceControl.phase !== 'WAITING_TO_LISTEN') return state;
+      if (state.voiceControl.mode === 'keyword' && state.voiceControl.keyword.trim().length === 0) return state;
       return {
         ...state,
         voiceControl: {
@@ -410,6 +415,15 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.voiceControl.mode, state.voiceControl.keyword]);
 
+  // Auto-disable voice control if keyword becomes invalid while enabled
+  useEffect(() => {
+    if (state.voiceControl.enabled &&
+        state.voiceControl.mode === 'keyword' &&
+        state.voiceControl.keyword.trim().length === 0) {
+      dispatch({ type: 'VOICE_CONTROL_DISABLE' });
+    }
+  }, [state.voiceControl.enabled, state.voiceControl.mode, state.voiceControl.keyword]);
+
   // Handle disabling voice control - resume auto-progression if needed
   useEffect(() => {
     // If voice control is disabled, playing, and not currently speaking, schedule auto-advance
@@ -576,6 +590,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const calculateTimePerPin = (s: number) => {
     return (0.8 / s) + Math.max(0.5, 1.5 / s);
   };
+
+  // Computed: Check if voice control can be enabled
+  const isKeywordValid = state.voiceControl.keyword.trim().length > 0;
+  const canEnableVoiceControl = state.voiceControl.mode === 'number' || isKeywordValid;
 
   // FIX: Reset state when sequence changes or initialStep changes
   useEffect(() => {
@@ -1131,6 +1149,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                 variant={state.voiceControl.enabled ? "default" : "outline"}
                 size="sm"
                 onClick={() => dispatch({ type: state.voiceControl.enabled ? 'VOICE_CONTROL_DISABLE' : 'VOICE_CONTROL_ENABLE' })}
+                disabled={!state.voiceControl.enabled && !canEnableVoiceControl}
               >
                 {state.voiceControl.enabled ? 'Disable Voice Confirmation' : 'Enable Voice Confirmation'}
               </Button>
@@ -1165,11 +1184,16 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                     <label className="text-xs font-medium text-subtle">Confirmation Keyword</label>
                     <input
                       type="text"
-                      className="w-full p-2 rounded text-sm border border-input bg-background"
+                      className={`w-full p-2 rounded text-sm border bg-background ${
+                        !isKeywordValid ? 'border-destructive' : 'border-input'
+                      }`}
                       value={state.voiceControl.keyword}
                       onChange={(e) => dispatch({ type: 'VOICE_CONTROL_SET_KEYWORD', payload: e.target.value })}
                       placeholder="e.g., okay, next, go"
                     />
+                    {!isKeywordValid && (
+                      <p className="text-xs text-destructive">Keyword cannot be empty</p>
+                    )}
                   </div>
                 )}
 
