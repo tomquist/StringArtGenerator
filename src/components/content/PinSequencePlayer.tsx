@@ -783,7 +783,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         if (!state.voiceControl.enabled) {
+         if (!voiceControlRef.current.enabled) {
            // If voice control is NOT enabled, auto-advance
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
