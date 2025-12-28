@@ -461,17 +461,26 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       speechRecognition.stopRecognition();
     }
 
+    utterance.onstart = () => {
+      // Start listening partway through speech to allow faster response
+      if (speechRecognitionEnabledRef.current) {
+        // Calculate delay: estimate ~0.4-0.6s for most numbers at normal speed
+        // Adjust based on speech rate - slower speed = longer delay needed
+        const baseDelay = 400; // Base delay in ms
+        const speedAdjustedDelay = baseDelay / state.speed;
+
+        setTimeout(() => {
+          if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
+            speechRecognition.startListening(pinIndex);
+          }
+        }, speedAdjustedDelay);
+      }
+    };
+
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         if (speechRecognitionEnabledRef.current) {
-           // Start listening AFTER speech completely finishes with a delay
-           setTimeout(() => {
-             if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
-               speechRecognition.startListening(pinIndex);
-             }
-           }, 500); // 500ms delay after speech ends to ensure audio has cleared
-         } else {
+         if (!speechRecognitionEnabledRef.current) {
            // If speech recognition is NOT enabled, auto-advance
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
@@ -483,6 +492,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              }
            }, delay);
          }
+         // If speech recognition IS enabled, listening already started from onstart
       }
     };
     utteranceRef.current = utterance;
