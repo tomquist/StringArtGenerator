@@ -3,7 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { compressSequence, decompressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
-import n2words from 'n2words';
+import n2words, { type LanguageCode } from 'n2words';
 import {
   Play,
   Pause,
@@ -69,24 +69,33 @@ declare global {
 
 type SpeechRecognitionMode = 'number' | 'keyword';
 
-// Supported language codes by n2words
-type N2WordsLang = 'en' | 'ar' | 'cz' | 'dk' | 'de' | 'es' | 'fr' | 'fa' | 'he' | 'hr' | 'hu' | 'id' | 'it' | 'ko' | 'lt' | 'lv' | 'nl' | 'no' | 'pl' | 'pt' | 'ru' | 'sr' | 'tr' | 'uk' | 'vi' | 'zh';
+// Language code mapping: browser language codes -> n2words language codes
+const languageCodeMap: Record<string, LanguageCode> = {
+  'en': 'en', 'ar': 'ar', 'az': 'az', 'bn': 'bn', 'cs': 'cs', 'de': 'de',
+  'da': 'da', 'el': 'el', 'es': 'es', 'fa': 'fa', 'fr': 'fr', 'gu': 'gu',
+  'he': 'he', 'hi': 'hi', 'hr': 'hr', 'hu': 'hu', 'id': 'id', 'it': 'it',
+  'ja': 'ja', 'kn': 'kn', 'ko': 'ko', 'lt': 'lt', 'lv': 'lv', 'mr': 'mr',
+  'ms': 'ms', 'nl': 'nl', 'nb': 'nb', 'no': 'nb', 'pa': 'pa-Guru', 'pl': 'pl',
+  'pt': 'pt', 'ro': 'ro', 'ru': 'ru', 'sr': 'sr-Latn', 'sv': 'sv', 'sw': 'sw',
+  'ta': 'ta', 'te': 'te', 'th': 'th', 'fil': 'fil', 'tr': 'tr', 'uk': 'uk',
+  'ur': 'ur', 'vi': 'vi', 'zh': 'zh-Hans'
+};
 
 // Helper function to check if transcript matches a number in any supported language
 function matchesSpokenNumber(transcript: string, expectedNumber: number, language: string): boolean {
   try {
     // Get the language code (e.g., 'en' from 'en-US')
-    const langCode = language.split('-')[0];
+    const baseLangCode = language.split('-')[0];
 
-    // Supported languages by n2words
-    const supportedLangs: N2WordsLang[] = ['en', 'ar', 'cz', 'dk', 'de', 'es', 'fr', 'fa', 'he', 'hr', 'hu', 'id', 'it', 'ko', 'lt', 'lv', 'nl', 'no', 'pl', 'pt', 'ru', 'sr', 'tr', 'uk', 'vi', 'zh'];
+    // Map to n2words language code
+    const n2wordsLang = languageCodeMap[baseLangCode];
 
-    if (!supportedLangs.includes(langCode as N2WordsLang)) {
+    if (!n2wordsLang) {
       return false;
     }
 
     // Generate the word form of the expected number in the detected language
-    const numberAsWords = n2words(expectedNumber, { lang: langCode as N2WordsLang }).toLowerCase();
+    const numberAsWords = n2words(expectedNumber, { lang: n2wordsLang }).toLowerCase();
 
     // Check if the transcript contains the number as words
     return transcript.includes(numberAsWords);
