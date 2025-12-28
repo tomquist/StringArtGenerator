@@ -456,28 +456,24 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.rate = state.speed;
     utterance.pitch = 1.0;
 
-    utterance.onstart = () => {
-      // If speech recognition IS enabled, start listening shortly AFTER speaking starts
-      // This allows the user to respond while the number is still being spoken
-      if (speechRecognitionEnabledRef.current) {
-        setTimeout(() => {
-          if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
-            if (!speechRecognition.isListening) {
-              speechRecognition.startListening(pinIndex);
-            } else {
-              // Already listening in continuous mode, just update the expected pin
-              speechRecognition.updateExpectedPin(pinIndex);
-            }
-          }
-        }, 600); // 600ms delay to avoid picking up the synthesized voice
-      }
-    };
-
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         // If speech recognition is NOT enabled, auto-advance
-         if (!speechRecognitionEnabledRef.current) {
+         if (speechRecognitionEnabledRef.current) {
+           // If speech recognition IS enabled, start listening AFTER speech completely finishes
+           // with a delay to ensure audio has cleared and avoid picking up synthesized voice
+           setTimeout(() => {
+             if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
+               if (!speechRecognition.isListening) {
+                 speechRecognition.startListening(pinIndex);
+               } else {
+                 // Already listening in continuous mode, just update the expected pin
+                 speechRecognition.updateExpectedPin(pinIndex);
+               }
+             }
+           }, 500); // 500ms delay after speech ends to ensure audio has cleared
+         } else {
+           // If speech recognition is NOT enabled, auto-advance
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
            timeoutRef.current = setTimeout(() => {
@@ -488,8 +484,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              }
            }, delay);
          }
-         // If speech recognition IS enabled, we're already listening from onstart
-         // The onresult handler will advance when it hears the correct word
       }
     };
     utteranceRef.current = utterance;
