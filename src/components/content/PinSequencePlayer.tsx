@@ -403,7 +403,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   }, [currentStep, compressedSeqString]);
 
   // Speech Recognition Logic
-  const startListening = (expectedPin: number) => {
+  const startListening = (pinIndex: number) => {
     if (!speechRecognitionEnabled || !isSpeechRecognitionSupported) return;
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -419,8 +419,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     recognition.interimResults = false;
     recognition.lang = navigator.language || 'en-US';
 
+    const currentPinNumber = sequence[pinIndex];
     waitingForConfirmationRef.current = true;
-    setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${expectedPin}"` : `"${confirmationKeyword}"`}...`);
+    setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${currentPinNumber}"` : `"${confirmationKeyword}"`}...`);
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript.toLowerCase().trim();
@@ -429,7 +430,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       if (recognitionMode === 'number') {
         // Check if transcript contains the expected number
         const spokenNumber = transcript.match(/\d+/);
-        isMatch = !!(spokenNumber && parseInt(spokenNumber[0], 10) === expectedPin);
+        isMatch = !!(spokenNumber && parseInt(spokenNumber[0], 10) === currentPinNumber);
       } else {
         // Check if transcript contains the confirmation keyword
         isMatch = transcript.includes(confirmationKeyword.toLowerCase());
@@ -441,8 +442,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
         // Move to next step
         setTimeout(() => {
-          if (expectedPin < sequence.length - 1) {
-            setCurrentStep(expectedPin + 1);
+          if (pinIndex < sequence.length - 1) {
+            setCurrentStep(pinIndex + 1);
           } else {
             setIsPlaying(false);
           }
@@ -451,24 +452,37 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       } else {
         setRecognitionStatus(`❌ Said "${transcript}" - try again`);
         // Restart listening
-        setTimeout(() => startListening(expectedPin), 1000);
+        setTimeout(() => startListening(pinIndex), 1000);
       }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      // Handle different error types
       if (event.error === 'no-speech') {
         setRecognitionStatus('No speech detected - listening again...');
-        setTimeout(() => startListening(expectedPin), 500);
-      } else {
-        setRecognitionStatus(`Error: ${event.error}`);
+        setTimeout(() => startListening(pinIndex), 500);
+      } else if (event.error === 'aborted') {
+        // Aborted errors happen when stop() is called or a new session starts
+        // Only restart if we're still waiting and playing
+        if (waitingForConfirmationRef.current && isPlayingRef.current) {
+          setTimeout(() => startListening(pinIndex), 500);
+        }
+      } else if (event.error === 'audio-capture' || event.error === 'not-allowed') {
+        // Permission or hardware errors - don't retry
+        setRecognitionStatus(`Microphone error: ${event.error}`);
         waitingForConfirmationRef.current = false;
+        setSpeechRecognitionEnabled(false);
+      } else {
+        // Other errors - show message but retry
+        setRecognitionStatus(`Error: ${event.error} - retrying...`);
+        setTimeout(() => startListening(pinIndex), 1000);
       }
     };
 
     recognition.onend = () => {
       // If we're still waiting for confirmation and playing, restart
       if (waitingForConfirmationRef.current && isPlayingRef.current) {
-        setTimeout(() => startListening(expectedPin), 500);
+        setTimeout(() => startListening(pinIndex), 500);
       }
     };
 
