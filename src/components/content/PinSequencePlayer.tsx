@@ -214,11 +214,25 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     voiceRecognitionEnabledRef.current = state.voiceRecognitionEnabled;
 
-    // Clear pending recognition start timeout when voice recognition is disabled
-    if (!state.voiceRecognitionEnabled && recognitionStartTimeoutRef.current) {
-      clearTimeout(recognitionStartTimeoutRef.current);
-      recognitionStartTimeoutRef.current = null;
+    if (state.voiceRecognitionEnabled) {
+      // Voice control was just enabled - start listening immediately if playing
+      if (state.isPlaying && !speechRecognition.isListening) {
+        // Cancel any pending auto-advance timeout since we're switching to voice confirmation
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        // Start listening for the current pin
+        speechRecognition.startListening(state.currentStep);
+      }
+    } else {
+      // Voice control was disabled - clear pending recognition start timeout
+      if (recognitionStartTimeoutRef.current) {
+        clearTimeout(recognitionStartTimeoutRef.current);
+        recognitionStartTimeoutRef.current = null;
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.voiceRecognitionEnabled]);
 
   // Handle mode/keyword changes - update status to reflect new expected value
