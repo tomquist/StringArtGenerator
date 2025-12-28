@@ -456,20 +456,19 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.rate = state.speed;
     utterance.pitch = 1.0;
 
+    // IMPORTANT: Stop recognition before speaking to prevent it from hearing the synthesized voice
+    if (speechRecognitionEnabledRef.current && speechRecognition.isListening) {
+      speechRecognition.stopRecognition();
+    }
+
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
          if (speechRecognitionEnabledRef.current) {
-           // If speech recognition IS enabled, start listening AFTER speech completely finishes
-           // with a delay to ensure audio has cleared and avoid picking up synthesized voice
+           // Start listening AFTER speech completely finishes with a delay
            setTimeout(() => {
              if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
-               if (!speechRecognition.isListening) {
-                 speechRecognition.startListening(pinIndex);
-               } else {
-                 // Already listening in continuous mode, just update the expected pin
-                 speechRecognition.updateExpectedPin(pinIndex);
-               }
+               speechRecognition.startListening(pinIndex);
              }
            }, 500); // 500ms delay after speech ends to ensure audio has cleared
          } else {
