@@ -101,6 +101,7 @@ type PlayerAction =
   | { type: 'VOICE_CONTROL_SET_KEYWORD'; payload: string }
   | { type: 'VOICE_CONTROL_SPEECH_STARTED'; payload: { pinIndex: number; scheduledTime: number } }
   | { type: 'VOICE_CONTROL_START_LISTENING'; payload: { pinIndex: number; statusMessage: string } }
+  | { type: 'VOICE_CONTROL_UPDATE_STATUS'; payload: string }
   | { type: 'VOICE_CONTROL_CONFIRMED' }
   | { type: 'VOICE_CONTROL_RESET' }
   | { type: 'VOICE_CONTROL_ERROR'; payload: string };
@@ -209,8 +210,12 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
       };
 
     case 'VOICE_CONTROL_SPEECH_STARTED':
-      // Can only schedule listening from IDLE phase when enabled
-      if (!state.voiceControl.enabled || state.voiceControl.phase !== 'IDLE') return state;
+      // Can only schedule listening from IDLE or CONFIRMED phase when enabled
+      // CONFIRMED is allowed because we may start next speech before RESET is dispatched
+      if (!state.voiceControl.enabled ||
+          (state.voiceControl.phase !== 'IDLE' && state.voiceControl.phase !== 'CONFIRMED')) {
+        return state;
+      }
       return {
         ...state,
         voiceControl: {
@@ -233,6 +238,17 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
           listeningForPinIndex: action.payload.pinIndex,
           scheduledListenTime: null,
           statusMessage: action.payload.statusMessage
+        }
+      };
+
+    case 'VOICE_CONTROL_UPDATE_STATUS':
+      // Can only update status when in LISTENING phase
+      if (!state.voiceControl.enabled || state.voiceControl.phase !== 'LISTENING') return state;
+      return {
+        ...state,
+        voiceControl: {
+          ...state.voiceControl,
+          statusMessage: action.payload
         }
       };
 
@@ -346,6 +362,22 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     speedRef.current = state.speed;
   }, [state.speed]);
+
+  // Update status message when mode/keyword changes during LISTENING
+  useEffect(() => {
+    if (state.voiceControl.phase === 'LISTENING' && state.voiceControl.listeningForPinIndex !== null) {
+      const pinIndex = state.voiceControl.listeningForPinIndex;
+      const expectedNumber = sequence[pinIndex];
+      const expected = state.voiceControl.mode === 'number' ? expectedNumber : state.voiceControl.keyword;
+      const newStatus = `Waiting for ${state.voiceControl.mode === 'number' ? `"${expected}"` : `"${expected}"`}...`;
+
+      // Only dispatch if status actually changed
+      if (state.voiceControl.statusMessage !== newStatus) {
+        dispatch({ type: 'VOICE_CONTROL_UPDATE_STATUS', payload: newStatus });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.voiceControl.mode, state.voiceControl.keyword]);
 
   // Voice Control State Machine Controller (event-driven, no automatic transitions)
   useEffect(() => {
@@ -685,8 +717,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.pitch = 1.0;
 
     utterance.onstart = () => {
-      // If voice control is enabled and in IDLE, schedule listening
-      if (state.voiceControl.enabled && state.voiceControl.phase === 'IDLE') {
+      // If voice control is enabled and in IDLE or CONFIRMED, schedule listening
+      // CONFIRMED is included because we're about to reset to IDLE after advancing
+      if (state.voiceControl.enabled &&
+          (state.voiceControl.phase === 'IDLE' || state.voiceControl.phase === 'CONFIRMED')) {
         const now = Date.now();
         const baseDelay = 600; // Base delay in ms
         const delay = baseDelay / state.speed;

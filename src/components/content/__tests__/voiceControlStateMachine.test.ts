@@ -25,6 +25,7 @@ type VoiceControlEvent =
   | { type: 'SET_KEYWORD'; payload: string }
   | { type: 'SPEECH_STARTED'; payload: { pinIndex: number; scheduledTime: number } }
   | { type: 'START_LISTENING'; payload: { pinIndex: number; statusMessage: string } }
+  | { type: 'UPDATE_STATUS'; payload: string }
   | { type: 'CONFIRMED' }
   | { type: 'RESET' }
   | { type: 'ERROR'; payload: string };
@@ -71,8 +72,12 @@ function voiceControlReducer(state: VoiceControlState, event: VoiceControlEvent)
       };
 
     case 'SPEECH_STARTED':
-      // Can only schedule listening from IDLE phase when enabled
-      if (!state.enabled || state.phase !== 'IDLE') return state;
+      // Can only schedule listening from IDLE or CONFIRMED phase when enabled
+      // CONFIRMED is allowed because we may start next speech before RESET is dispatched
+      if (!state.enabled ||
+          (state.phase !== 'IDLE' && state.phase !== 'CONFIRMED')) {
+        return state;
+      }
       return {
         ...state,
         phase: 'WAITING_TO_LISTEN',
@@ -90,6 +95,14 @@ function voiceControlReducer(state: VoiceControlState, event: VoiceControlEvent)
         listeningForPinIndex: event.payload.pinIndex,
         scheduledListenTime: null,
         statusMessage: event.payload.statusMessage
+      };
+
+    case 'UPDATE_STATUS':
+      // Can only update status when in LISTENING phase
+      if (!state.enabled || state.phase !== 'LISTENING') return state;
+      return {
+        ...state,
+        statusMessage: event.payload
       };
 
     case 'CONFIRMED':
@@ -273,6 +286,39 @@ describe('Voice Control State Machine', () => {
       state = voiceControlReducer(state, { type: 'SET_MODE', payload: 'number' });
       expect(state.mode).toBe('number');
       expect(state.phase).toBe('WAITING_TO_LISTEN'); // Phase unchanged
+    });
+
+    it('should allow UPDATE_STATUS during LISTENING', () => {
+      let state = voiceControlReducer(initialState, { type: 'ENABLE' });
+      state = voiceControlReducer(state, { type: 'SPEECH_STARTED', payload: { pinIndex: 0, scheduledTime: Date.now() + 600 } });
+      state = voiceControlReducer(state, { type: 'START_LISTENING', payload: { pinIndex: 0, statusMessage: 'Waiting for "okay"...' } });
+
+      state = voiceControlReducer(state, { type: 'UPDATE_STATUS', payload: 'Waiting for "123"...' });
+      expect(state.statusMessage).toBe('Waiting for "123"...');
+      expect(state.phase).toBe('LISTENING'); // Phase unchanged
+    });
+
+    it('should reject UPDATE_STATUS when not in LISTENING', () => {
+      let state = voiceControlReducer(initialState, { type: 'ENABLE' });
+
+      const prevState = state;
+      state = voiceControlReducer(state, { type: 'UPDATE_STATUS', payload: 'test' });
+      expect(state).toEqual(prevState); // Unchanged
+    });
+  });
+
+  describe('SPEECH_STARTED from CONFIRMED', () => {
+    it('should allow SPEECH_STARTED from CONFIRMED phase', () => {
+      let state = voiceControlReducer(initialState, { type: 'ENABLE' });
+      state = voiceControlReducer(state, { type: 'SPEECH_STARTED', payload: { pinIndex: 0, scheduledTime: Date.now() + 600 } });
+      state = voiceControlReducer(state, { type: 'START_LISTENING', payload: { pinIndex: 0, statusMessage: 'Waiting...' } });
+      state = voiceControlReducer(state, { type: 'CONFIRMED' });
+      expect(state.phase).toBe('CONFIRMED');
+
+      // Should allow SPEECH_STARTED from CONFIRMED (for next pin)
+      state = voiceControlReducer(state, { type: 'SPEECH_STARTED', payload: { pinIndex: 1, scheduledTime: Date.now() + 600 } });
+      expect(state.phase).toBe('WAITING_TO_LISTEN');
+      expect(state.listeningForPinIndex).toBe(1);
     });
   });
 });
