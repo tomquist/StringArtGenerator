@@ -786,11 +786,15 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.onstart = () => {
       // If voice control is enabled and in IDLE or CONFIRMED, schedule listening
       // CONFIRMED is included because we're about to reset to IDLE after advancing
-      if (state.voiceControl.enabled &&
-          (state.voiceControl.phase === 'IDLE' || state.voiceControl.phase === 'CONFIRMED')) {
+      // Use refs to get current values instead of stale closure values
+      const enabled = voiceControlEnabledRef.current;
+      const phase = voiceControlRef.current.phase;
+      const currentSpeed = speedRef.current;
+
+      if (enabled && (phase === 'IDLE' || phase === 'CONFIRMED')) {
         const now = Date.now();
         const baseDelay = 600; // Base delay in ms
-        const delay = baseDelay / state.speed;
+        const delay = baseDelay / currentSpeed;
         dispatch({
           type: 'VOICE_CONTROL_SPEECH_STARTED',
           payload: {

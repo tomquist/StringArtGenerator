@@ -52,7 +52,7 @@ declare global {
 
 // Language code mapping: browser language codes -> n2words language codes
 // Only includes codes actually supported by n2words v1.24.0
-const languageCodeMap: Record<string, LanguageCode> = {
+const languageCodeMap: Record<string, string> = {
   'en': 'en', 'ar': 'ar', 'az': 'az', 'cs': 'cz', 'de': 'de',
   'da': 'dk', 'es': 'es', 'fa': 'fa', 'fr': 'fr',
   'he': 'he', 'hr': 'hr', 'hu': 'hu', 'id': 'id', 'it': 'it',
@@ -76,7 +76,7 @@ function matchesSpokenNumber(transcript: string, expectedNumber: number, languag
     }
 
     // Generate the word form of the expected number in the detected language
-    const numberAsWords = n2words(expectedNumber, { lang: n2wordsLang }).toLowerCase();
+    const numberAsWords = n2words(expectedNumber, { lang: n2wordsLang as LanguageCode }).toLowerCase();
 
     // Check if the transcript contains the number as words
     return transcript.includes(numberAsWords);
