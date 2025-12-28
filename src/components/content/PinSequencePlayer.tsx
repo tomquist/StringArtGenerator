@@ -341,6 +341,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const speedRef = useRef(state.speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const voiceControlRef = useRef(state.voiceControl);
+  const voiceControlEnabledRef = useRef(state.voiceControl.enabled);
 
   // Speech Recognition Hook - simplified to just wrap the browser API
   const speechRecognition = useSpeechRecognition({
@@ -382,6 +383,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     voiceControlRef.current = state.voiceControl;
   }, [state.voiceControl]);
+
+  useEffect(() => {
+    voiceControlEnabledRef.current = state.voiceControl.enabled;
+  }, [state.voiceControl.enabled]);
 
   // Update status message when mode/keyword changes during LISTENING
   useEffect(() => {
@@ -787,7 +792,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         if (!voiceControlRef.current.enabled) {
+         if (!voiceControlEnabledRef.current) {
            // If voice control is NOT enabled, auto-advance
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
