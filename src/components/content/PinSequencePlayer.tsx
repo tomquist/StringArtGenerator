@@ -469,7 +469,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
               speechRecognition.updateExpectedPin(pinIndex);
             }
           }
-        }, 300); // 300ms delay to avoid picking up the start of the synthesized voice
+        }, 600); // 600ms delay to avoid picking up the synthesized voice
       }
     };
 
