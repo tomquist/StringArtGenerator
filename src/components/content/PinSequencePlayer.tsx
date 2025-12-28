@@ -538,9 +538,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.onstart = () => {
       // Start listening partway through speech to allow faster response
       if (voiceRecognitionEnabledRef.current) {
-        // Calculate delay: estimate ~0.4-0.6s for most numbers at normal speed
+        // Calculate delay: estimate ~0.6-0.8s for most numbers at normal speed
         // Adjust based on speech rate - slower speed = longer delay needed
-        const baseDelay = 400; // Base delay in ms
+        const baseDelay = 600; // Base delay in ms
         const speedAdjustedDelay = baseDelay / state.speed;
 
         // Clear any existing timeout before setting a new one
