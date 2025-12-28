@@ -92,6 +92,7 @@ export interface UseSpeechRecognitionProps {
   keyword: string;
   onMatch: () => void;
   onError: (error: string) => void;
+  onUnexpectedEnd: () => void;
 }
 
 export function useSpeechRecognition({
@@ -99,7 +100,8 @@ export function useSpeechRecognition({
   mode,
   keyword,
   onMatch,
-  onError
+  onError,
+  onUnexpectedEnd
 }: UseSpeechRecognitionProps) {
   // Refs
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -193,6 +195,9 @@ export function useSpeechRecognition({
 
     recognition.onend = () => {
       recognitionRef.current = null;
+      // Recognition ended unexpectedly (browser may end continuous mode on some events)
+      // Notify component so it can restart if still in LISTENING phase
+      onUnexpectedEnd();
     };
 
     recognitionRef.current = recognition;

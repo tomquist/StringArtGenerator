@@ -351,6 +351,18 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     },
     onError: (error) => {
       dispatch({ type: 'VOICE_CONTROL_ERROR', payload: error });
+    },
+    onUnexpectedEnd: () => {
+      // Recognition ended unexpectedly - restart if still in LISTENING phase
+      // This happens when browser ends continuous mode after a result
+      if (state.voiceControl.phase === 'LISTENING' && state.voiceControl.listeningForPinIndex !== null) {
+        // Small delay before restarting to avoid rapid restart loops
+        setTimeout(() => {
+          if (state.voiceControl.phase === 'LISTENING' && state.voiceControl.listeningForPinIndex !== null) {
+            speechRecognition.startListening(state.voiceControl.listeningForPinIndex);
+          }
+        }, 100);
+      }
     }
   });
 
@@ -378,6 +390,29 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.voiceControl.mode, state.voiceControl.keyword]);
+
+  // Handle disabling voice control - resume auto-progression if needed
+  useEffect(() => {
+    // If voice control is disabled, playing, and not currently speaking, schedule auto-advance
+    if (!state.voiceControl.enabled && state.isPlaying && !window.speechSynthesis.speaking) {
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      // Schedule auto-advance
+      const currentSpeed = speedRef.current;
+      const delay = Math.max(500, 1500 / currentSpeed);
+      timeoutRef.current = setTimeout(() => {
+        if (state.currentStep < sequence.length - 1) {
+          dispatch({ type: 'SET_CURRENT_STEP', payload: state.currentStep + 1 });
+        } else {
+          dispatch({ type: 'SET_IS_PLAYING', payload: false });
+        }
+      }, delay);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.voiceControl.enabled]);
 
   // Voice Control State Machine Controller (event-driven, no automatic transitions)
   useEffect(() => {
