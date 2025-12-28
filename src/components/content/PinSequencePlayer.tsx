@@ -175,6 +175,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     onPlayingChange: (playing) => dispatch({ type: 'SET_IS_PLAYING', payload: playing })
   });
 
+  const speechRecognitionEnabledRef = useRef(speechRecognition.speechRecognitionEnabled);
+
   // Sync refs with state
   useEffect(() => {
     isPlayingRef.current = state.isPlaying;
@@ -183,6 +185,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     speedRef.current = state.speed;
   }, [state.speed]);
+
+  useEffect(() => {
+    speechRecognitionEnabledRef.current = speechRecognition.speechRecognitionEnabled;
+  }, [speechRecognition.speechRecognitionEnabled]);
 
   // Manage screen wake lock
   useEffect(() => {
@@ -463,7 +469,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
          // If speech recognition is NOT enabled, auto-advance
-         if (!speechRecognition.speechRecognitionEnabled) {
+         if (!speechRecognitionEnabledRef.current) {
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
            timeoutRef.current = setTimeout(() => {
