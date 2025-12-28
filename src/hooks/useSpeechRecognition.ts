@@ -51,15 +51,15 @@ declare global {
 }
 
 // Language code mapping: browser language codes -> n2words language codes
-// Only includes codes actually supported by n2words v1.24.0
-const languageCodeMap: Record<string, string> = {
-  'en': 'en', 'ar': 'ar', 'az': 'az', 'cs': 'cz', 'de': 'de',
-  'da': 'dk', 'es': 'es', 'fa': 'fa', 'fr': 'fr',
-  'he': 'he', 'hr': 'hr', 'hu': 'hu', 'id': 'id', 'it': 'it',
-  'ko': 'ko', 'lt': 'lt', 'lv': 'lv',
-  'nl': 'nl', 'nb': 'nb', 'no': 'no', 'pl': 'pl',
-  'pt': 'pt', 'ru': 'ru', 'sr': 'sr',
-  'tr': 'tr', 'uk': 'uk', 'vi': 'vi', 'zh': 'zh'
+const languageCodeMap: Record<string, LanguageCode> = {
+  'en': 'en', 'ar': 'ar', 'az': 'az', 'bn': 'bn', 'cs': 'cs', 'de': 'de',
+  'da': 'da', 'el': 'el', 'es': 'es', 'fa': 'fa', 'fr': 'fr', 'gu': 'gu',
+  'he': 'he', 'hi': 'hi', 'hr': 'hr', 'hu': 'hu', 'id': 'id', 'it': 'it',
+  'ja': 'ja', 'kn': 'kn', 'ko': 'ko', 'lt': 'lt', 'lv': 'lv', 'mr': 'mr',
+  'ms': 'ms', 'nl': 'nl', 'nb': 'nb', 'no': 'nb', 'pa': 'pa-Guru', 'pl': 'pl',
+  'pt': 'pt', 'ro': 'ro', 'ru': 'ru', 'sr': 'sr-Latn', 'sv': 'sv', 'sw': 'sw',
+  'ta': 'ta', 'te': 'te', 'th': 'th', 'fil': 'fil', 'tr': 'tr', 'uk': 'uk',
+  'ur': 'ur', 'vi': 'vi', 'zh': 'zh-Hans'
 };
 
 // Helper function to check if transcript matches a number in any supported language
@@ -76,7 +76,7 @@ function matchesSpokenNumber(transcript: string, expectedNumber: number, languag
     }
 
     // Generate the word form of the expected number in the detected language
-    const numberAsWords = n2words(expectedNumber, { lang: n2wordsLang as LanguageCode }).toLowerCase();
+    const numberAsWords = n2words(expectedNumber, { lang: n2wordsLang }).toLowerCase();
 
     // Check if the transcript contains the number as words
     return transcript.includes(numberAsWords);
