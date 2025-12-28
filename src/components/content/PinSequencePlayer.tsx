@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { compressSequence, decompressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
+import wordsToNumbers from '@insomnia-dev/words-to-numbers';
 import {
   Play,
   Pause,
@@ -67,59 +68,6 @@ declare global {
 }
 
 type SpeechRecognitionMode = 'number' | 'keyword';
-
-// Browser-safe word-to-number converter for speech recognition transcripts
-function convertWordsToNumber(text: string): number | null {
-  const normalized = text.toLowerCase().trim();
-
-  // Word mappings for English (most common for speech recognition)
-  const ones: Record<string, number> = {
-    'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-    'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
-    'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19
-  };
-
-  const tens: Record<string, number> = {
-    'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50,
-    'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90
-  };
-
-  const scales: Record<string, number> = {
-    'hundred': 100, 'thousand': 1000
-  };
-
-  // First, try direct word match (common for single digits)
-  if (ones[normalized] !== undefined) {
-    return ones[normalized];
-  }
-  if (tens[normalized] !== undefined) {
-    return tens[normalized];
-  }
-
-  // Parse more complex numbers
-  const words = normalized.replace(/[^\w\s]/g, '').split(/\s+/);
-  let total = 0;
-  let current = 0;
-
-  for (const word of words) {
-    if (ones[word] !== undefined) {
-      current += ones[word];
-    } else if (tens[word] !== undefined) {
-      current += tens[word];
-    } else if (scales[word] !== undefined) {
-      if (current === 0) current = 1;
-      current *= scales[word];
-      if (scales[word] >= 1000) {
-        total += current;
-        current = 0;
-      }
-    }
-  }
-
-  total += current;
-  return total > 0 ? total : null;
-}
 
 interface PinSequencePlayerProps {
   sequence: number[];
@@ -503,9 +451,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
         // Strategy 2: Convert spoken words to number (e.g., "forty two" -> 42, "one" -> 1)
         if (!isMatch) {
-          const convertedNumber = convertWordsToNumber(transcript);
-          if (convertedNumber === expectedPinNumber) {
-            isMatch = true;
+          try {
+            const convertedNumber = wordsToNumbers(transcript);
+            if (typeof convertedNumber === 'number' && convertedNumber === expectedPinNumber) {
+              isMatch = true;
+            }
+          } catch {
+            // Ignore conversion errors
           }
         }
 
