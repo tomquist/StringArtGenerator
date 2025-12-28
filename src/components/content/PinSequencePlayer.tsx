@@ -14,8 +14,59 @@ import {
   FileUp,
   FileDown,
   Search,
-  X
+  X,
+  Mic,
+  MicOff
 } from 'lucide-react';
+
+// Type declarations for Web Speech API
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionResultList {
+  [index: number]: SpeechRecognitionResult;
+  length: number;
+}
+
+interface SpeechRecognitionResult {
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+  length: number;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+    webkitSpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+  }
+}
+
+type SpeechRecognitionMode = 'number' | 'keyword';
 
 interface PinSequencePlayerProps {
   sequence: number[];
@@ -59,6 +110,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [compressedSeqString, setCompressedSeqString] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Speech Recognition State
+  const [speechRecognitionEnabled, setSpeechRecognitionEnabled] = useState(false);
+  const [recognitionMode, setRecognitionMode] = useState<SpeechRecognitionMode>('keyword');
+  const [confirmationKeyword, setConfirmationKeyword] = useState('okay');
+  const [recognitionStatus, setRecognitionStatus] = useState<string | null>(null);
+  const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(false);
+
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -67,6 +125,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const waitingForConfirmationRef = useRef(false);
 
   // Sync refs with state
   useEffect(() => {
@@ -76,6 +136,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+
+  // Check for Speech Recognition support
+  useEffect(() => {
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    setIsSpeechRecognitionSupported(!!SpeechRecognitionAPI);
+  }, []);
 
   // Manage screen wake lock
   useEffect(() => {
@@ -336,6 +402,99 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     window.history.replaceState({}, '', url.toString());
   }, [currentStep, compressedSeqString]);
 
+  // Speech Recognition Logic
+  const startListening = (expectedPin: number) => {
+    if (!speechRecognitionEnabled || !isSpeechRecognitionSupported) return;
+
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
+
+    // Stop any existing recognition
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language || 'en-US';
+
+    waitingForConfirmationRef.current = true;
+    setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${expectedPin}"` : `"${confirmationKeyword}"`}...`);
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript.toLowerCase().trim();
+
+      let isMatch = false;
+      if (recognitionMode === 'number') {
+        // Check if transcript contains the expected number
+        const spokenNumber = transcript.match(/\d+/);
+        isMatch = !!(spokenNumber && parseInt(spokenNumber[0], 10) === expectedPin);
+      } else {
+        // Check if transcript contains the confirmation keyword
+        isMatch = transcript.includes(confirmationKeyword.toLowerCase());
+      }
+
+      if (isMatch) {
+        setRecognitionStatus('✓ Confirmed');
+        waitingForConfirmationRef.current = false;
+
+        // Move to next step
+        setTimeout(() => {
+          if (expectedPin < sequence.length - 1) {
+            setCurrentStep(expectedPin + 1);
+          } else {
+            setIsPlaying(false);
+          }
+          setRecognitionStatus(null);
+        }, 500);
+      } else {
+        setRecognitionStatus(`❌ Said "${transcript}" - try again`);
+        // Restart listening
+        setTimeout(() => startListening(expectedPin), 1000);
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error === 'no-speech') {
+        setRecognitionStatus('No speech detected - listening again...');
+        setTimeout(() => startListening(expectedPin), 500);
+      } else {
+        setRecognitionStatus(`Error: ${event.error}`);
+        waitingForConfirmationRef.current = false;
+      }
+    };
+
+    recognition.onend = () => {
+      // If we're still waiting for confirmation and playing, restart
+      if (waitingForConfirmationRef.current && isPlayingRef.current) {
+        setTimeout(() => startListening(expectedPin), 500);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  // Cleanup speech recognition on unmount or when disabled
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!speechRecognitionEnabled && recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+      waitingForConfirmationRef.current = false;
+      setRecognitionStatus(null);
+    }
+  }, [speechRecognitionEnabled]);
+
   // Playback Logic
   const speakPin = (pinIndex: number) => {
     window.speechSynthesis.cancel();
@@ -349,15 +508,20 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         const currentSpeed = speedRef.current;
-         const delay = Math.max(500, 1500 / currentSpeed);
-         timeoutRef.current = setTimeout(() => {
-           if (pinIndex < sequence.length - 1) {
-             setCurrentStep(pinIndex + 1);
-           } else {
-             setIsPlaying(false);
-           }
-         }, delay);
+         // If speech recognition is enabled, start listening instead of auto-advancing
+         if (speechRecognitionEnabled) {
+           startListening(pinIndex);
+         } else {
+           const currentSpeed = speedRef.current;
+           const delay = Math.max(500, 1500 / currentSpeed);
+           timeoutRef.current = setTimeout(() => {
+             if (pinIndex < sequence.length - 1) {
+               setCurrentStep(pinIndex + 1);
+             } else {
+               setIsPlaying(false);
+             }
+           }, delay);
+         }
       }
     };
     utteranceRef.current = utterance;
@@ -405,6 +569,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       lastStepInfo.current = null;
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      // Stop speech recognition
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      waitingForConfirmationRef.current = false;
+      setRecognitionStatus(null);
     } else {
       setIsPlaying(true);
       if (currentStep >= sequence.length - 1) {
@@ -649,6 +820,70 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              </select>
            </div>
         </div>
+
+        {/* Speech Recognition Settings */}
+        {isSpeechRecognitionSupported && (
+          <div className="space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {speechRecognitionEnabled ? <Mic className="w-4 h-4 text-primary" /> : <MicOff className="w-4 h-4 text-muted-foreground" />}
+                <label className="text-sm font-medium">Voice Confirmation</label>
+              </div>
+              <Button
+                variant={speechRecognitionEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSpeechRecognitionEnabled(!speechRecognitionEnabled)}
+              >
+                {speechRecognitionEnabled ? 'Enabled' : 'Disabled'}
+              </Button>
+            </div>
+
+            {speechRecognitionEnabled && (
+              <div className="space-y-3 pl-6 animate-in fade-in slide-in-from-top-1">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-subtle">Confirmation Mode</label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={recognitionMode === 'number' ? 'default' : 'outline'}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setRecognitionMode('number')}
+                    >
+                      Say Number
+                    </Button>
+                    <Button
+                      variant={recognitionMode === 'keyword' ? 'default' : 'outline'}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setRecognitionMode('keyword')}
+                    >
+                      Say Keyword
+                    </Button>
+                  </div>
+                </div>
+
+                {recognitionMode === 'keyword' && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-subtle">Confirmation Keyword</label>
+                    <input
+                      type="text"
+                      className="w-full p-2 rounded text-sm border border-input bg-background"
+                      value={confirmationKeyword}
+                      onChange={(e) => setConfirmationKeyword(e.target.value)}
+                      placeholder="e.g., okay, next, go"
+                    />
+                  </div>
+                )}
+
+                {recognitionStatus && (
+                  <div className="p-2 bg-muted/50 rounded text-xs text-center font-medium">
+                    {recognitionStatus}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Search */}
         <div className="space-y-2">
