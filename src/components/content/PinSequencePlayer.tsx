@@ -414,7 +414,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (e) {
+      } catch {
         // Ignore errors from stopping (e.g., if already stopped)
       }
       recognitionRef.current = null;
@@ -542,6 +542,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         startListening(currentStep);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speechRecognitionEnabled]);
 
   // Playback Logic
