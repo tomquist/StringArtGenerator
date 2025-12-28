@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { compressSequence, decompressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
+import wordsToNumbers from 'words-to-numbers';
 import {
   Play,
   Pause,
@@ -442,9 +443,31 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
       let isMatch = false;
       if (recognitionMode === 'number') {
-        // Check if transcript contains the expected number
-        const spokenNumber = transcript.match(/\d+/);
-        isMatch = !!(spokenNumber && parseInt(spokenNumber[0], 10) === expectedPinNumber);
+        // Strategy 1: Check if transcript contains the expected number as digits
+        const digitMatch = transcript.match(/\d+/);
+        if (digitMatch && parseInt(digitMatch[0], 10) === expectedPinNumber) {
+          isMatch = true;
+        }
+
+        // Strategy 2: Convert spoken number words to integer (e.g., "forty two" -> 42)
+        if (!isMatch) {
+          try {
+            const convertedNumber = wordsToNumbers(transcript);
+            if (typeof convertedNumber === 'number' && convertedNumber === expectedPinNumber) {
+              isMatch = true;
+            }
+          } catch {
+            // Ignore conversion errors
+          }
+        }
+
+        // Strategy 3: Check if transcript includes the number as a string
+        if (!isMatch) {
+          const expectedString = expectedPinNumber.toString();
+          if (transcript.includes(expectedString)) {
+            isMatch = true;
+          }
+        }
       } else {
         // Check if transcript contains the confirmation keyword
         isMatch = transcript.includes(confirmationKeyword.toLowerCase());
