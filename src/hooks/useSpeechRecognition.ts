@@ -91,7 +91,7 @@ export interface UseSpeechRecognitionProps {
   mode: SpeechRecognitionMode;
   keyword: string;
   onMatch: () => void;
-  onStatusUpdate: (status: string) => void;
+  onError: (error: string) => void;
 }
 
 export function useSpeechRecognition({
@@ -99,7 +99,7 @@ export function useSpeechRecognition({
   mode,
   keyword,
   onMatch,
-  onStatusUpdate
+  onError
 }: UseSpeechRecognitionProps) {
   // Refs
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -178,19 +178,17 @@ export function useSpeechRecognition({
 
       if (isMatch) {
         onMatch();
-      } else {
-        onStatusUpdate(`❌ Said "${transcript}" - try again`);
-        // Reset status after a delay
-        setTimeout(() => {
-          const expected = currentMode === 'number' ? expectedPinNumber : currentKeyword;
-          onStatusUpdate(`Waiting for ${currentMode === 'number' ? `"${expected}"` : `"${expected}"`}...`);
-        }, 800);
       }
+      // Ignore non-matches - continuous listening will keep trying
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.warn('Speech recognition error:', event.error);
-      // Just log errors, don't try to restart - component controls lifecycle
+      // Report errors to component for handling
+      if (event.error === 'audio-capture' || event.error === 'not-allowed') {
+        onError(event.error);
+      }
+      // Ignore other errors (no-speech, network, etc.) - continuous mode handles them
     };
 
     recognition.onend = () => {
@@ -199,11 +197,6 @@ export function useSpeechRecognition({
 
     recognitionRef.current = recognition;
     recognition.start();
-
-    // Set initial status
-    const expectedPinNumber = sequence[pinIndex];
-    const expected = mode === 'number' ? expectedPinNumber : keyword;
-    onStatusUpdate(`Waiting for ${mode === 'number' ? `"${expected}"` : `"${expected}"`}...`);
   };
 
   // Stop recognition

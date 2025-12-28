@@ -94,15 +94,16 @@ type PlayerAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET_PLAYBACK'; payload: number }
   | { type: 'RESET_TIMING' }
-  // Voice Control Actions
+  // Voice Control Events (event-driven, validated)
   | { type: 'VOICE_CONTROL_ENABLE' }
   | { type: 'VOICE_CONTROL_DISABLE' }
   | { type: 'VOICE_CONTROL_SET_MODE'; payload: 'number' | 'keyword' }
   | { type: 'VOICE_CONTROL_SET_KEYWORD'; payload: string }
-  | { type: 'VOICE_CONTROL_SCHEDULE_LISTENING'; payload: { pinIndex: number; scheduledTime: number } }
+  | { type: 'VOICE_CONTROL_SPEECH_STARTED'; payload: { pinIndex: number; scheduledTime: number } }
   | { type: 'VOICE_CONTROL_START_LISTENING'; payload: { pinIndex: number; statusMessage: string } }
   | { type: 'VOICE_CONTROL_CONFIRMED' }
-  | { type: 'VOICE_CONTROL_RESET_TO_IDLE' };
+  | { type: 'VOICE_CONTROL_RESET' }
+  | { type: 'VOICE_CONTROL_ERROR'; payload: string };
 
 function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
@@ -156,17 +157,23 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
         sampleCount: 0
       };
 
-    // Voice Control State Machine Actions
+    // Voice Control State Machine (Validated, tested in voiceControlStateMachine.test.ts)
     case 'VOICE_CONTROL_ENABLE':
+      if (state.voiceControl.enabled) return state; // Already enabled
       return {
         ...state,
         voiceControl: {
           ...state.voiceControl,
           enabled: true,
-          phase: 'IDLE'
+          phase: 'IDLE',
+          statusMessage: null,
+          scheduledListenTime: null,
+          listeningForPinIndex: null
         }
       };
+
     case 'VOICE_CONTROL_DISABLE':
+      if (!state.voiceControl.enabled) return state; // Already disabled
       return {
         ...state,
         voiceControl: {
@@ -178,27 +185,32 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
           listeningForPinIndex: null
         }
       };
+
     case 'VOICE_CONTROL_SET_MODE':
+      // Can change mode anytime when enabled (phase unchanged)
+      if (!state.voiceControl.enabled) return state;
       return {
         ...state,
         voiceControl: {
           ...state.voiceControl,
-          mode: action.payload,
-          // If currently listening, keep listening (refs will handle mode change)
-          // Otherwise reset to idle
-          phase: state.voiceControl.phase === 'LISTENING' ? 'LISTENING' : 'IDLE'
+          mode: action.payload
         }
       };
+
     case 'VOICE_CONTROL_SET_KEYWORD':
+      // Can change keyword anytime when enabled (phase unchanged)
+      if (!state.voiceControl.enabled) return state;
       return {
         ...state,
         voiceControl: {
           ...state.voiceControl,
-          keyword: action.payload,
-          phase: state.voiceControl.phase === 'LISTENING' ? 'LISTENING' : 'IDLE'
+          keyword: action.payload
         }
       };
-    case 'VOICE_CONTROL_SCHEDULE_LISTENING':
+
+    case 'VOICE_CONTROL_SPEECH_STARTED':
+      // Can only schedule listening from IDLE phase when enabled
+      if (!state.voiceControl.enabled || state.voiceControl.phase !== 'IDLE') return state;
       return {
         ...state,
         voiceControl: {
@@ -209,7 +221,10 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
           statusMessage: null
         }
       };
+
     case 'VOICE_CONTROL_START_LISTENING':
+      // Can only start listening from WAITING_TO_LISTEN phase
+      if (!state.voiceControl.enabled || state.voiceControl.phase !== 'WAITING_TO_LISTEN') return state;
       return {
         ...state,
         voiceControl: {
@@ -220,7 +235,10 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
           statusMessage: action.payload.statusMessage
         }
       };
+
     case 'VOICE_CONTROL_CONFIRMED':
+      // Can only confirm from LISTENING phase
+      if (!state.voiceControl.enabled || state.voiceControl.phase !== 'LISTENING') return state;
       return {
         ...state,
         voiceControl: {
@@ -229,7 +247,10 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
           statusMessage: '✓ Confirmed'
         }
       };
-    case 'VOICE_CONTROL_RESET_TO_IDLE':
+
+    case 'VOICE_CONTROL_RESET':
+      // Can reset from any phase back to IDLE when enabled
+      if (!state.voiceControl.enabled) return state;
       return {
         ...state,
         voiceControl: {
@@ -238,6 +259,20 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
           scheduledListenTime: null,
           listeningForPinIndex: null,
           statusMessage: null
+        }
+      };
+
+    case 'VOICE_CONTROL_ERROR':
+      // Error can happen from any phase, resets to IDLE
+      if (!state.voiceControl.enabled) return state;
+      return {
+        ...state,
+        voiceControl: {
+          ...state.voiceControl,
+          phase: 'IDLE',
+          scheduledListenTime: null,
+          listeningForPinIndex: null,
+          statusMessage: `Error: ${action.payload}`
         }
       };
     default:
@@ -298,12 +333,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     onMatch: () => {
       dispatch({ type: 'VOICE_CONTROL_CONFIRMED' });
     },
-    onStatusUpdate: (status) => {
-      // Hook can update status message without changing phase
-      dispatch({ type: 'VOICE_CONTROL_START_LISTENING', payload: {
-        pinIndex: state.voiceControl.listeningForPinIndex!,
-        statusMessage: status
-      }});
+    onError: (error) => {
+      dispatch({ type: 'VOICE_CONTROL_ERROR', payload: error });
     }
   });
 
@@ -316,58 +347,46 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     speedRef.current = state.speed;
   }, [state.speed]);
 
-  // Voice Control State Machine Controller
+  // Voice Control State Machine Controller (event-driven, no automatic transitions)
   useEffect(() => {
     const phase = state.voiceControl.phase;
 
     switch (phase) {
       case 'DISABLED':
-        // Stop any active recognition
+        // Stop any active recognition when disabled
         if (speechRecognition.isListening) {
           speechRecognition.stopRecognition();
         }
         break;
 
       case 'IDLE':
-        // Voice control enabled but not in a playback cycle
-        // If playing and not speaking, we should schedule listening for current pin
-        if (state.isPlaying && !window.speechSynthesis.speaking) {
-          // Transition to waiting to listen
-          const now = Date.now();
-          const baseDelay = 600; // ms
-          const delay = baseDelay / state.speed;
-          dispatch({
-            type: 'VOICE_CONTROL_SCHEDULE_LISTENING',
-            payload: {
-              pinIndex: state.currentStep,
-              scheduledTime: now + delay
-            }
-          });
-        }
+        // Just idle - no automatic transitions
+        // State changes only via explicit events (SPEECH_STARTED, etc.)
         break;
 
-      case 'WAITING_TO_LISTEN':
+      case 'WAITING_TO_LISTEN': {
         // Scheduled to start listening at a specific time
-        if (state.voiceControl.scheduledListenTime) {
-          const now = Date.now();
-          const delay = Math.max(0, state.voiceControl.scheduledListenTime - now);
-          const timeoutId = setTimeout(() => {
-            if (state.voiceControl.phase === 'WAITING_TO_LISTEN' && state.isPlaying) {
-              const pinIndex = state.voiceControl.listeningForPinIndex!;
-              const expectedNumber = sequence[pinIndex];
-              const expected = state.voiceControl.mode === 'number' ? expectedNumber : state.voiceControl.keyword;
-              dispatch({
-                type: 'VOICE_CONTROL_START_LISTENING',
-                payload: {
-                  pinIndex,
-                  statusMessage: `Waiting for ${state.voiceControl.mode === 'number' ? `"${expected}"` : `"${expected}"`}...`
-                }
-              });
-            }
-          }, delay);
-          return () => clearTimeout(timeoutId);
-        }
-        break;
+        if (!state.voiceControl.scheduledListenTime) break;
+
+        const now = Date.now();
+        const delay = Math.max(0, state.voiceControl.scheduledListenTime - now);
+        const timeoutId = setTimeout(() => {
+          // Double-check we're still in WAITING phase (may have changed)
+          if (state.voiceControl.phase === 'WAITING_TO_LISTEN' && state.isPlaying) {
+            const pinIndex = state.voiceControl.listeningForPinIndex!;
+            const expectedNumber = sequence[pinIndex];
+            const expected = state.voiceControl.mode === 'number' ? expectedNumber : state.voiceControl.keyword;
+            dispatch({
+              type: 'VOICE_CONTROL_START_LISTENING',
+              payload: {
+                pinIndex,
+                statusMessage: `Waiting for ${state.voiceControl.mode === 'number' ? `"${expected}"` : `"${expected}"`}...`
+              }
+            });
+          }
+        }, delay);
+        return () => clearTimeout(timeoutId);
+      }
 
       case 'LISTENING':
         // Start recognition if not already listening
@@ -386,18 +405,18 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           if (state.currentStep < sequence.length - 1) {
             dispatch({ type: 'SET_CURRENT_STEP', payload: state.currentStep + 1 });
             // Reset to IDLE for next cycle
-            dispatch({ type: 'VOICE_CONTROL_RESET_TO_IDLE' });
+            dispatch({ type: 'VOICE_CONTROL_RESET' });
           } else {
             // End of sequence
             dispatch({ type: 'SET_IS_PLAYING', payload: false });
-            dispatch({ type: 'VOICE_CONTROL_RESET_TO_IDLE' });
+            dispatch({ type: 'VOICE_CONTROL_RESET' });
           }
         }, 300);
         return () => clearTimeout(advanceTimeout);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.voiceControl.phase, state.voiceControl.scheduledListenTime, state.isPlaying]);
+  }, [state.voiceControl.phase, state.voiceControl.scheduledListenTime]);
 
   // Manage screen wake lock
   useEffect(() => {
@@ -666,13 +685,13 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.pitch = 1.0;
 
     utterance.onstart = () => {
-      // If voice control is enabled, schedule listening
-      if (state.voiceControl.enabled) {
+      // If voice control is enabled and in IDLE, schedule listening
+      if (state.voiceControl.enabled && state.voiceControl.phase === 'IDLE') {
         const now = Date.now();
         const baseDelay = 600; // Base delay in ms
         const delay = baseDelay / state.speed;
         dispatch({
-          type: 'VOICE_CONTROL_SCHEDULE_LISTENING',
+          type: 'VOICE_CONTROL_SPEECH_STARTED',
           payload: {
             pinIndex,
             scheduledTime: now + delay
@@ -742,7 +761,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       // Reset voice control to IDLE
       if (state.voiceControl.enabled) {
-        dispatch({ type: 'VOICE_CONTROL_RESET_TO_IDLE' });
+        dispatch({ type: 'VOICE_CONTROL_RESET' });
       }
     } else {
       dispatch({ type: 'SET_IS_PLAYING', payload: true });
