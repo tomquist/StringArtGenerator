@@ -376,7 +376,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         }
         break;
 
-      case 'CONFIRMED':
+      case 'CONFIRMED': {
         // Voice match confirmed - stop listening and advance
         if (speechRecognition.isListening) {
           speechRecognition.stopRecognition();
@@ -394,6 +394,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           }
         }, 300);
         return () => clearTimeout(advanceTimeout);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.voiceControl.phase, state.voiceControl.scheduledListenTime, state.isPlaying]);
