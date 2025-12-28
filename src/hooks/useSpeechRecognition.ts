@@ -325,11 +325,13 @@ export function useSpeechRecognition({
 
   // Stop recognition
   const stopRecognition = () => {
+    // Set waiting flag to false FIRST to prevent onend from restarting
+    waitingForConfirmationRef.current = false;
+
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
-    waitingForConfirmationRef.current = false;
     onStatusChange(null);
   };
 

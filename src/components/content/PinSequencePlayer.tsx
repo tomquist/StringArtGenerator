@@ -186,6 +186,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
   const isPlayingRef = useRef(state.isPlaying);
   const speedRef = useRef(state.speed);
+  const voiceRecognitionEnabledRef = useRef(state.voiceRecognitionEnabled);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   // Speech Recognition Hook
@@ -201,8 +202,6 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     onStatusChange: (status) => dispatch({ type: 'SET_VOICE_RECOGNITION_STATUS', payload: status })
   });
 
-  const speechRecognitionEnabledRef = useRef(state.voiceRecognitionEnabled);
-
   // Sync refs with state
   useEffect(() => {
     isPlayingRef.current = state.isPlaying;
@@ -213,9 +212,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   }, [state.speed]);
 
   useEffect(() => {
-    speechRecognitionEnabledRef.current = state.voiceRecognitionEnabled;
+    voiceRecognitionEnabledRef.current = state.voiceRecognitionEnabled;
 
-    // Cancel any pending recognition start timeout when voice control is disabled
+    // Clear pending recognition start timeout when voice recognition is disabled
     if (!state.voiceRecognitionEnabled && recognitionStartTimeoutRef.current) {
       clearTimeout(recognitionStartTimeoutRef.current);
       recognitionStartTimeoutRef.current = null;
@@ -489,20 +488,25 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.pitch = 1.0;
 
     // IMPORTANT: Stop recognition before speaking to prevent it from hearing the synthesized voice
-    if (speechRecognitionEnabledRef.current && speechRecognition.isListening) {
+    if (voiceRecognitionEnabledRef.current && speechRecognition.isListening) {
       speechRecognition.stopRecognition();
     }
 
     utterance.onstart = () => {
       // Start listening partway through speech to allow faster response
-      if (speechRecognitionEnabledRef.current) {
+      if (voiceRecognitionEnabledRef.current) {
         // Calculate delay: estimate ~0.4-0.6s for most numbers at normal speed
         // Adjust based on speech rate - slower speed = longer delay needed
         const baseDelay = 400; // Base delay in ms
         const speedAdjustedDelay = baseDelay / state.speed;
 
+        // Clear any existing timeout before setting a new one
+        if (recognitionStartTimeoutRef.current) {
+          clearTimeout(recognitionStartTimeoutRef.current);
+        }
+
         recognitionStartTimeoutRef.current = setTimeout(() => {
-          if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
+          if (isPlayingRef.current && voiceRecognitionEnabledRef.current) {
             speechRecognition.startListening(pinIndex);
           }
           recognitionStartTimeoutRef.current = null;
@@ -513,7 +517,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         if (!speechRecognitionEnabledRef.current) {
+         if (!voiceRecognitionEnabledRef.current) {
            // If speech recognition is NOT enabled, auto-advance
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
@@ -559,6 +563,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       // Always cleanup on unmount or dependency change to prevent zombie audio
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (recognitionStartTimeoutRef.current) clearTimeout(recognitionStartTimeoutRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStep, state.isPlaying]); // speed is purposefully excluded to avoid re-triggering during playback
@@ -569,10 +574,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       lastStepInfo.current = null;
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (recognitionStartTimeoutRef.current) {
-        clearTimeout(recognitionStartTimeoutRef.current);
-        recognitionStartTimeoutRef.current = null;
-      }
+      if (recognitionStartTimeoutRef.current) clearTimeout(recognitionStartTimeoutRef.current);
       // Stop speech recognition
       speechRecognition.stopRecognition();
     } else {
