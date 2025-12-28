@@ -231,18 +231,35 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         clearTimeout(recognitionStartTimeoutRef.current);
         recognitionStartTimeoutRef.current = null;
       }
+      // If playing and not currently speaking, schedule auto-advance
+      if (state.isPlaying && !window.speechSynthesis.speaking) {
+        const currentSpeed = speedRef.current;
+        const delay = Math.max(500, 1500 / currentSpeed);
+        timeoutRef.current = setTimeout(() => {
+          if (state.currentStep < sequence.length - 1) {
+            dispatch({ type: 'SET_CURRENT_STEP', payload: state.currentStep + 1 });
+          } else {
+            dispatch({ type: 'SET_IS_PLAYING', payload: false });
+          }
+        }, delay);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.voiceRecognitionEnabled]);
 
-  // Handle mode/keyword changes - update status to reflect new expected value
+  // Handle mode/keyword changes - restart recognition if needed
   useEffect(() => {
-    // Only update if recognition is currently active and playing
-    if (speechRecognition.isListening && state.isPlaying) {
-      // Update the status to show the new expected value
-      const currentPinNumber = sequence[state.currentStep];
-      const newStatus = `Waiting for ${state.voiceRecognitionMode === 'number' ? `"${currentPinNumber}"` : `"${state.voiceRecognitionKeyword}"`}...`;
-      dispatch({ type: 'SET_VOICE_RECOGNITION_STATUS', payload: newStatus });
+    // Only act if voice control is enabled and playing
+    if (state.voiceRecognitionEnabled && state.isPlaying) {
+      if (speechRecognition.isListening) {
+        // Recognition is active - update the status to show the new expected value
+        const currentPinNumber = sequence[state.currentStep];
+        const newStatus = `Waiting for ${state.voiceRecognitionMode === 'number' ? `"${currentPinNumber}"` : `"${state.voiceRecognitionKeyword}"`}...`;
+        dispatch({ type: 'SET_VOICE_RECOGNITION_STATUS', payload: newStatus });
+      } else {
+        // Recognition not listening (may have ended unexpectedly) - restart it
+        speechRecognition.startListening(state.currentStep);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.voiceRecognitionMode, state.voiceRecognitionKeyword]);
