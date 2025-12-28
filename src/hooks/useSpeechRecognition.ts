@@ -149,7 +149,10 @@ export function useSpeechRecognition({
       const lastResultIndex = event.results.length - 1;
       const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
 
-      const expectedPinNumber = sequence[pinIndex];
+      const expectedPinIndex = expectedPinIndexRef.current;
+      if (expectedPinIndex === null) return;
+
+      const expectedPinNumber = sequence[expectedPinIndex];
       const currentMode = modeRef.current;
       const currentKeyword = keywordRef.current;
 
