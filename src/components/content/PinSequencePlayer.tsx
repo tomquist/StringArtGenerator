@@ -53,6 +53,11 @@ interface PlayerState {
   sampleCount: number;
   compressedSeqString: string | null;
   error: string | null;
+  // Voice recognition state
+  voiceRecognitionEnabled: boolean;
+  voiceRecognitionMode: 'number' | 'keyword';
+  voiceRecognitionKeyword: string;
+  voiceRecognitionStatus: string | null;
 }
 
 type PlayerAction =
@@ -72,7 +77,11 @@ type PlayerAction =
   | { type: 'SET_COMPRESSED_SEQ_STRING'; payload: string | null }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET_PLAYBACK'; payload: number }
-  | { type: 'RESET_TIMING' };
+  | { type: 'RESET_TIMING' }
+  | { type: 'SET_VOICE_RECOGNITION_ENABLED'; payload: boolean }
+  | { type: 'SET_VOICE_RECOGNITION_MODE'; payload: 'number' | 'keyword' }
+  | { type: 'SET_VOICE_RECOGNITION_KEYWORD'; payload: string }
+  | { type: 'SET_VOICE_RECOGNITION_STATUS'; payload: string | null };
 
 function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
@@ -125,6 +134,14 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
         avgTimeMetric: null,
         sampleCount: 0
       };
+    case 'SET_VOICE_RECOGNITION_ENABLED':
+      return { ...state, voiceRecognitionEnabled: action.payload };
+    case 'SET_VOICE_RECOGNITION_MODE':
+      return { ...state, voiceRecognitionMode: action.payload };
+    case 'SET_VOICE_RECOGNITION_KEYWORD':
+      return { ...state, voiceRecognitionKeyword: action.payload };
+    case 'SET_VOICE_RECOGNITION_STATUS':
+      return { ...state, voiceRecognitionStatus: action.payload };
     default:
       return state;
   }
@@ -154,7 +171,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     avgTimeMetric: null,
     sampleCount: 0,
     compressedSeqString: null,
-    error: null
+    error: null,
+    voiceRecognitionEnabled: false,
+    voiceRecognitionMode: 'keyword',
+    voiceRecognitionKeyword: 'okay',
+    voiceRecognitionStatus: null
   });
 
   // Refs
@@ -172,11 +193,15 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     sequence,
     isPlaying: state.isPlaying,
     currentStep: state.currentStep,
+    enabled: state.voiceRecognitionEnabled,
+    mode: state.voiceRecognitionMode,
+    keyword: state.voiceRecognitionKeyword,
     onStepAdvance: (step) => dispatch({ type: 'SET_CURRENT_STEP', payload: step }),
-    onPlayingChange: (playing) => dispatch({ type: 'SET_IS_PLAYING', payload: playing })
+    onPlayingChange: (playing) => dispatch({ type: 'SET_IS_PLAYING', payload: playing }),
+    onStatusChange: (status) => dispatch({ type: 'SET_VOICE_RECOGNITION_STATUS', payload: status })
   });
 
-  const speechRecognitionEnabledRef = useRef(speechRecognition.speechRecognitionEnabled);
+  const speechRecognitionEnabledRef = useRef(state.voiceRecognitionEnabled);
 
   // Sync refs with state
   useEffect(() => {
@@ -188,37 +213,14 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   }, [state.speed]);
 
   useEffect(() => {
-    speechRecognitionEnabledRef.current = speechRecognition.speechRecognitionEnabled;
+    speechRecognitionEnabledRef.current = state.voiceRecognitionEnabled;
 
     // Cancel any pending recognition start timeout when voice control is disabled
-    if (!speechRecognition.speechRecognitionEnabled && recognitionStartTimeoutRef.current) {
+    if (!state.voiceRecognitionEnabled && recognitionStartTimeoutRef.current) {
       clearTimeout(recognitionStartTimeoutRef.current);
       recognitionStartTimeoutRef.current = null;
     }
-  }, [speechRecognition.speechRecognitionEnabled]);
-
-  // Restart recognition when mode or keyword changes while actively listening
-  useEffect(() => {
-    if (speechRecognition.speechRecognitionEnabled &&
-        speechRecognition.isListening &&
-        state.isPlaying) {
-      // Stop current recognition
-      speechRecognition.stopRecognition();
-      // Clear any pending start timeout
-      if (recognitionStartTimeoutRef.current) {
-        clearTimeout(recognitionStartTimeoutRef.current);
-        recognitionStartTimeoutRef.current = null;
-      }
-      // Restart with new settings after a brief delay
-      recognitionStartTimeoutRef.current = setTimeout(() => {
-        if (speechRecognitionEnabledRef.current && isPlayingRef.current) {
-          speechRecognition.startListening(state.currentStep);
-        }
-        recognitionStartTimeoutRef.current = null;
-      }, 100);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speechRecognition.recognitionMode, speechRecognition.confirmationKeyword]);
+  }, [state.voiceRecognitionEnabled]);
 
   // Manage screen wake lock
   useEffect(() => {
@@ -827,58 +829,58 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           <div className="space-y-4 pt-4 border-t border-border/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {speechRecognition.speechRecognitionEnabled ? <Mic className="w-4 h-4 text-primary" /> : <MicOff className="w-4 h-4 text-muted-foreground" />}
+                {state.voiceRecognitionEnabled ? <Mic className="w-4 h-4 text-primary" /> : <MicOff className="w-4 h-4 text-muted-foreground" />}
                 <label className="text-sm font-medium">Voice Confirmation</label>
               </div>
               <Button
-                variant={speechRecognition.speechRecognitionEnabled ? "default" : "outline"}
+                variant={state.voiceRecognitionEnabled ? "default" : "outline"}
                 size="sm"
-                onClick={() => speechRecognition.setSpeechRecognitionEnabled(!speechRecognition.speechRecognitionEnabled)}
+                onClick={() => dispatch({ type: 'SET_VOICE_RECOGNITION_ENABLED', payload: !state.voiceRecognitionEnabled })}
               >
-                {speechRecognition.speechRecognitionEnabled ? 'Disable Voice Confirmation' : 'Enable Voice Confirmation'}
+                {state.voiceRecognitionEnabled ? 'Disable Voice Confirmation' : 'Enable Voice Confirmation'}
               </Button>
             </div>
 
-            {speechRecognition.speechRecognitionEnabled && (
+            {state.voiceRecognitionEnabled && (
               <div className="space-y-3 pl-6 animate-in fade-in slide-in-from-top-1">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-subtle">Confirmation Mode</label>
                   <div className="flex gap-2">
                     <Button
-                      variant={speechRecognition.recognitionMode === 'number' ? 'default' : 'outline'}
+                      variant={state.voiceRecognitionMode === 'number' ? 'default' : 'outline'}
                       size="sm"
                       className="flex-1"
-                      onClick={() => speechRecognition.setRecognitionMode('number')}
+                      onClick={() => dispatch({ type: 'SET_VOICE_RECOGNITION_MODE', payload: 'number' })}
                     >
                       Say Number
                     </Button>
                     <Button
-                      variant={speechRecognition.recognitionMode === 'keyword' ? 'default' : 'outline'}
+                      variant={state.voiceRecognitionMode === 'keyword' ? 'default' : 'outline'}
                       size="sm"
                       className="flex-1"
-                      onClick={() => speechRecognition.setRecognitionMode('keyword')}
+                      onClick={() => dispatch({ type: 'SET_VOICE_RECOGNITION_MODE', payload: 'keyword' })}
                     >
                       Say Keyword
                     </Button>
                   </div>
                 </div>
 
-                {speechRecognition.recognitionMode === 'keyword' && (
+                {state.voiceRecognitionMode === 'keyword' && (
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-subtle">Confirmation Keyword</label>
                     <input
                       type="text"
                       className="w-full p-2 rounded text-sm border border-input bg-background"
-                      value={speechRecognition.confirmationKeyword}
-                      onChange={(e) => speechRecognition.setConfirmationKeyword(e.target.value)}
+                      value={state.voiceRecognitionKeyword}
+                      onChange={(e) => dispatch({ type: 'SET_VOICE_RECOGNITION_KEYWORD', payload: e.target.value })}
                       placeholder="e.g., okay, next, go"
                     />
                   </div>
                 )}
 
-                {speechRecognition.recognitionStatus && (
+                {state.voiceRecognitionStatus && (
                   <div className="p-2 bg-muted/50 rounded text-xs text-center font-medium">
-                    {speechRecognition.recognitionStatus}
+                    {state.voiceRecognitionStatus}
                   </div>
                 )}
               </div>

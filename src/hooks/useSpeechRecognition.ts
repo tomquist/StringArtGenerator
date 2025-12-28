@@ -90,22 +90,26 @@ export interface UseSpeechRecognitionProps {
   sequence: number[];
   isPlaying: boolean;
   currentStep: number;
+  enabled: boolean;
+  mode: SpeechRecognitionMode;
+  keyword: string;
   onStepAdvance: (nextStep: number) => void;
   onPlayingChange: (playing: boolean) => void;
+  onStatusChange: (status: string | null) => void;
 }
 
 export function useSpeechRecognition({
   sequence,
   isPlaying,
   currentStep,
+  enabled,
+  mode,
+  keyword,
   onStepAdvance,
-  onPlayingChange
+  onPlayingChange,
+  onStatusChange
 }: UseSpeechRecognitionProps) {
-  // State
-  const [speechRecognitionEnabled, setSpeechRecognitionEnabled] = useState(false);
-  const [recognitionMode, setRecognitionMode] = useState<SpeechRecognitionMode>('keyword');
-  const [confirmationKeyword, setConfirmationKeyword] = useState('okay');
-  const [recognitionStatus, setRecognitionStatus] = useState<string | null>(null);
+  // Support check
   const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(false);
 
   // Refs
@@ -113,11 +117,26 @@ export function useSpeechRecognition({
   const waitingForConfirmationRef = useRef(false);
   const expectedPinIndexRef = useRef(currentStep);
   const isPlayingRef = useRef(isPlaying);
+  const enabledRef = useRef(enabled);
+  const modeRef = useRef(mode);
+  const keywordRef = useRef(keyword);
 
   // Sync refs with props
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    keywordRef.current = keyword;
+  }, [keyword]);
 
   // Check for Speech Recognition support
   useEffect(() => {
@@ -127,7 +146,7 @@ export function useSpeechRecognition({
 
   // Speech Recognition Logic
   const startListening = (pinIndex: number) => {
-    if (!speechRecognitionEnabled || !isSpeechRecognitionSupported) return;
+    if (!enabled || !isSpeechRecognitionSupported) return;
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) return;
@@ -151,7 +170,7 @@ export function useSpeechRecognition({
     waitingForConfirmationRef.current = true;
 
     const currentPinNumber = sequence[pinIndex];
-    setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${currentPinNumber}"` : `"${confirmationKeyword}"`}...`);
+    onStatusChange(`Waiting for ${mode === 'number' ? `"${currentPinNumber}"` : `"${keyword}"`}...`);
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       // Use the latest result from the continuous recognition
@@ -162,8 +181,12 @@ export function useSpeechRecognition({
       const expectedPinIndex = expectedPinIndexRef.current;
       const expectedPinNumber = sequence[expectedPinIndex];
 
+      // Use refs to get current mode and keyword (they may have changed)
+      const currentMode = modeRef.current;
+      const currentKeyword = keywordRef.current;
+
       let isMatch = false;
-      if (recognitionMode === 'number') {
+      if (currentMode === 'number') {
         // Strategy 1: Check if transcript contains the expected number as digits
         const digitMatch = transcript.match(/\d+/);
         if (digitMatch && parseInt(digitMatch[0], 10) === expectedPinNumber) {
@@ -184,11 +207,11 @@ export function useSpeechRecognition({
         }
       } else {
         // Check if transcript contains the confirmation keyword
-        isMatch = transcript.includes(confirmationKeyword.toLowerCase());
+        isMatch = transcript.includes(currentKeyword.toLowerCase());
       }
 
       if (isMatch) {
-        setRecognitionStatus('✓ Confirmed');
+        onStatusChange('✓ Confirmed');
 
         // Move to next step
         setTimeout(() => {
@@ -197,18 +220,18 @@ export function useSpeechRecognition({
             onStepAdvance(nextIndex);
             expectedPinIndexRef.current = nextIndex;
             const nextPinNumber = sequence[nextIndex];
-            setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${nextPinNumber}"` : `"${confirmationKeyword}"`}...`);
+            onStatusChange(`Waiting for ${modeRef.current === 'number' ? `"${nextPinNumber}"` : `"${keywordRef.current}"`}...`);
           } else {
             onPlayingChange(false);
             waitingForConfirmationRef.current = false;
           }
         }, 300);
       } else {
-        setRecognitionStatus(`❌ Said "${transcript}" - try again`);
+        onStatusChange(`❌ Said "${transcript}" - try again`);
         // In continuous mode, just keep listening - no need to restart
         setTimeout(() => {
           if (isPlayingRef.current && waitingForConfirmationRef.current) {
-            setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${expectedPinNumber}"` : `"${confirmationKeyword}"`}...`);
+            onStatusChange(`Waiting for ${modeRef.current === 'number' ? `"${expectedPinNumber}"` : `"${keywordRef.current}"`}...`);
           }
         }, 800);
       }
@@ -224,9 +247,8 @@ export function useSpeechRecognition({
         // This is expected when pausing or disabling, don't restart
       } else if (event.error === 'audio-capture' || event.error === 'not-allowed') {
         // Permission or hardware errors - disable the feature
-        setRecognitionStatus(`Microphone error: ${event.error}`);
+        onStatusChange(`Microphone error: ${event.error}`);
         waitingForConfirmationRef.current = false;
-        setSpeechRecognitionEnabled(false);
       } else {
         // Other errors - try to restart in continuous mode
         console.warn('Speech recognition error:', event.error);
@@ -256,7 +278,7 @@ export function useSpeechRecognition({
     recognition.start();
   };
 
-  // Cleanup speech recognition on unmount or when disabled
+  // Cleanup speech recognition on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
@@ -266,37 +288,38 @@ export function useSpeechRecognition({
     };
   }, []);
 
+  // Handle enabled state changes
   useEffect(() => {
-    if (!speechRecognitionEnabled && recognitionRef.current) {
+    if (!enabled && recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
       waitingForConfirmationRef.current = false;
-      setRecognitionStatus(null);
-    } else if (speechRecognitionEnabled && isSpeechRecognitionSupported && isPlaying) {
-      // When enabling voice confirmation while playing, start listening immediately
-      // This also handles the initial permission request
-      if (!recognitionRef.current) {
-        startListening(currentStep);
-      }
+      onStatusChange(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speechRecognitionEnabled]);
+  }, [enabled, onStatusChange]);
 
-  // Update status message when recognition mode or keyword changes
+  // Handle mode/keyword changes while listening - restart with new settings
   useEffect(() => {
-    if (speechRecognitionEnabled && recognitionRef.current && waitingForConfirmationRef.current) {
-      const expectedPinIndex = expectedPinIndexRef.current;
-      const expectedPinNumber = sequence[expectedPinIndex];
-      setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${expectedPinNumber}"` : `"${confirmationKeyword}"`}...`);
+    if (enabled && recognitionRef.current && waitingForConfirmationRef.current) {
+      // Mode or keyword changed while listening - restart recognition
+      const currentIndex = expectedPinIndexRef.current;
+      stopRecognition();
+      // Small delay before restarting
+      setTimeout(() => {
+        if (enabledRef.current && isPlayingRef.current) {
+          startListening(currentIndex);
+        }
+      }, 100);
     }
-  }, [recognitionMode, confirmationKeyword, speechRecognitionEnabled, sequence]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, keyword]);
 
-  // Update expected pin when spoken
+  // Update expected pin when current step changes
   const updateExpectedPin = (pinIndex: number) => {
-    if (speechRecognitionEnabled && recognitionRef.current) {
+    if (enabled && recognitionRef.current) {
       expectedPinIndexRef.current = pinIndex;
       const currentPinNumber = sequence[pinIndex];
-      setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${currentPinNumber}"` : `"${confirmationKeyword}"`}...`);
+      onStatusChange(`Waiting for ${mode === 'number' ? `"${currentPinNumber}"` : `"${keyword}"`}...`);
     }
   };
 
@@ -307,26 +330,14 @@ export function useSpeechRecognition({
       recognitionRef.current = null;
     }
     waitingForConfirmationRef.current = false;
-    setRecognitionStatus(null);
+    onStatusChange(null);
   };
 
   return {
-    // State
-    speechRecognitionEnabled,
-    setSpeechRecognitionEnabled,
-    recognitionMode,
-    setRecognitionMode,
-    confirmationKeyword,
-    setConfirmationKeyword,
-    recognitionStatus,
     isSpeechRecognitionSupported,
-
-    // Methods
     startListening,
     stopRecognition,
     updateExpectedPin,
-
-    // Refs
     isListening: !!recognitionRef.current
   };
 }
