@@ -190,6 +190,22 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     speechRecognitionEnabledRef.current = speechRecognition.speechRecognitionEnabled;
   }, [speechRecognition.speechRecognitionEnabled]);
 
+  // Restart recognition when mode or keyword changes while actively listening
+  useEffect(() => {
+    if (speechRecognition.speechRecognitionEnabled &&
+        speechRecognition.isListening &&
+        state.isPlaying) {
+      // Stop current recognition
+      speechRecognition.stopRecognition();
+      // Restart with new settings after a brief delay
+      setTimeout(() => {
+        if (speechRecognitionEnabledRef.current && isPlayingRef.current) {
+          speechRecognition.startListening(state.currentStep);
+        }
+      }, 100);
+    }
+  }, [speechRecognition.recognitionMode, speechRecognition.confirmationKeyword]);
+
   // Manage screen wake lock
   useEffect(() => {
     let isMounted = true;
