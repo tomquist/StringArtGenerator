@@ -335,6 +335,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const restartRecognitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
   const isPlayingRef = useRef(state.isPlaying);
@@ -360,12 +361,17 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       // Use ref to get current values, not captured closure values
       const currentVoiceControl = voiceControlRef.current;
       if (currentVoiceControl.phase === 'LISTENING' && currentVoiceControl.listeningForPinIndex !== null) {
+        // Clear any existing restart timeout
+        if (restartRecognitionTimeoutRef.current) {
+          clearTimeout(restartRecognitionTimeoutRef.current);
+        }
         // Small delay before restarting to avoid rapid restart loops
-        setTimeout(() => {
+        restartRecognitionTimeoutRef.current = setTimeout(() => {
           const vc = voiceControlRef.current;
           if (vc.phase === 'LISTENING' && vc.listeningForPinIndex !== null) {
             speechRecognition.startListening(vc.listeningForPinIndex);
           }
+          restartRecognitionTimeoutRef.current = null;
         }, 100);
       }
     }
@@ -440,6 +446,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         // Stop any active recognition when disabled
         if (speechRecognition.isListening) {
           speechRecognition.stopRecognition();
+        }
+        // Clear any pending restart timeout
+        if (restartRecognitionTimeoutRef.current) {
+          clearTimeout(restartRecognitionTimeoutRef.current);
+          restartRecognitionTimeoutRef.current = null;
         }
         break;
 
@@ -571,6 +582,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     dispatch({ type: 'RESET_PLAYBACK', payload: initialStep });
     lastStepInfo.current = null;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (restartRecognitionTimeoutRef.current) clearTimeout(restartRecognitionTimeoutRef.current);
     window.speechSynthesis.cancel();
   }, [sequence, initialStep]);
 
@@ -838,6 +850,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       // Always cleanup on unmount or dependency change to prevent zombie audio
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (restartRecognitionTimeoutRef.current) clearTimeout(restartRecognitionTimeoutRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStep, state.isPlaying]); // speed is purposefully excluded to avoid re-triggering during playback
@@ -848,6 +861,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       lastStepInfo.current = null;
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (restartRecognitionTimeoutRef.current) clearTimeout(restartRecognitionTimeoutRef.current);
       // Reset voice control to IDLE
       if (state.voiceControl.enabled) {
         dispatch({ type: 'VOICE_CONTROL_RESET' });
