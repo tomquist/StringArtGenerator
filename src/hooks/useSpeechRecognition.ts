@@ -245,33 +245,24 @@ export function useSpeechRecognition({
       } else if (event.error === 'aborted') {
         // Aborted errors happen when stop() is called intentionally
         // This is expected when pausing or disabling, don't restart
+        waitingForConfirmationRef.current = false;
       } else if (event.error === 'audio-capture' || event.error === 'not-allowed') {
         // Permission or hardware errors - disable the feature
         onStatusChange(`Microphone error: ${event.error}`);
         waitingForConfirmationRef.current = false;
       } else {
-        // Other errors - try to restart in continuous mode
+        // Other errors - just log and stop
         console.warn('Speech recognition error:', event.error);
-        if (isPlayingRef.current && waitingForConfirmationRef.current) {
-          setTimeout(() => {
-            if (isPlayingRef.current && waitingForConfirmationRef.current) {
-              startListening(expectedPinIndexRef.current);
-            }
-          }, 500);
-        }
+        waitingForConfirmationRef.current = false;
+        onStatusChange(`Recognition error: ${event.error}`);
       }
     };
 
     recognition.onend = () => {
-      // In continuous mode, this shouldn't fire unless there's an error
-      // Restart if we're still waiting and playing
-      if (waitingForConfirmationRef.current && isPlayingRef.current) {
-        setTimeout(() => {
-          if (isPlayingRef.current && waitingForConfirmationRef.current) {
-            startListening(expectedPinIndexRef.current);
-          }
-        }, 200);
-      }
+      // Recognition ended - clear the waiting flag
+      // Component is responsible for restarting if needed
+      waitingForConfirmationRef.current = false;
+      recognitionRef.current = null;
     };
 
     recognitionRef.current = recognition;
@@ -297,22 +288,6 @@ export function useSpeechRecognition({
       onStatusChange(null);
     }
   }, [enabled, onStatusChange]);
-
-  // Handle mode/keyword changes while listening - restart with new settings
-  useEffect(() => {
-    if (enabled && recognitionRef.current && waitingForConfirmationRef.current) {
-      // Mode or keyword changed while listening - restart recognition
-      const currentIndex = expectedPinIndexRef.current;
-      stopRecognition();
-      // Small delay before restarting
-      setTimeout(() => {
-        if (enabledRef.current && isPlayingRef.current) {
-          startListening(currentIndex);
-        }
-      }, 100);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, keyword]);
 
   // Update expected pin when current step changes
   const updateExpectedPin = (pinIndex: number) => {

@@ -221,6 +221,18 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
   }, [state.voiceRecognitionEnabled]);
 
+  // Handle mode/keyword changes - update status to reflect new expected value
+  useEffect(() => {
+    // Only update if recognition is currently active and playing
+    if (speechRecognition.isListening && state.isPlaying) {
+      // Update the status to show the new expected value
+      const currentPinNumber = sequence[state.currentStep];
+      const newStatus = `Waiting for ${state.voiceRecognitionMode === 'number' ? `"${currentPinNumber}"` : `"${state.voiceRecognitionKeyword}"`}...`;
+      dispatch({ type: 'SET_VOICE_RECOGNITION_STATUS', payload: newStatus });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.voiceRecognitionMode, state.voiceRecognitionKeyword]);
+
   // Manage screen wake lock
   useEffect(() => {
     let isMounted = true;
