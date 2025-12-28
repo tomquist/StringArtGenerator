@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import n2words, { type LanguageCode } from 'n2words';
 
 export type SpeechRecognitionMode = 'number' | 'keyword';
@@ -88,49 +88,26 @@ function matchesSpokenNumber(transcript: string, expectedNumber: number, languag
 
 export interface UseSpeechRecognitionProps {
   sequence: number[];
-  isPlaying: boolean;
-  currentStep: number;
-  enabled: boolean;
   mode: SpeechRecognitionMode;
   keyword: string;
-  onStepAdvance: (nextStep: number) => void;
-  onPlayingChange: (playing: boolean) => void;
-  onStatusChange: (status: string | null) => void;
+  onMatch: () => void;
+  onStatusUpdate: (status: string) => void;
 }
 
 export function useSpeechRecognition({
   sequence,
-  isPlaying,
-  currentStep,
-  enabled,
   mode,
   keyword,
-  onStepAdvance,
-  onPlayingChange,
-  onStatusChange
+  onMatch,
+  onStatusUpdate
 }: UseSpeechRecognitionProps) {
-  // Support check
-  const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(false);
-
   // Refs
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const waitingForConfirmationRef = useRef(false);
-  const expectedPinIndexRef = useRef(currentStep);
-  const isPlayingRef = useRef(isPlaying);
-  const enabledRef = useRef(enabled);
   const modeRef = useRef(mode);
   const keywordRef = useRef(keyword);
-  const intentionalStopRef = useRef(false);
+  const expectedPinIndexRef = useRef<number | null>(null);
 
   // Sync refs with props
-  useEffect(() => {
-    isPlayingRef.current = isPlaying;
-  }, [isPlaying]);
-
-  useEffect(() => {
-    enabledRef.current = enabled;
-  }, [enabled]);
-
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
@@ -140,14 +117,11 @@ export function useSpeechRecognition({
   }, [keyword]);
 
   // Check for Speech Recognition support
-  useEffect(() => {
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    setIsSpeechRecognitionSupported(!!SpeechRecognitionAPI);
-  }, []);
+  const isSpeechRecognitionSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-  // Speech Recognition Logic
+  // Start listening for a specific pin index
   const startListening = (pinIndex: number) => {
-    if (!enabled || !isSpeechRecognitionSupported) return;
+    if (!isSpeechRecognitionSupported) return;
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) return;
@@ -157,7 +131,7 @@ export function useSpeechRecognition({
       try {
         recognitionRef.current.stop();
       } catch {
-        // Ignore errors from stopping (e.g., if already stopped)
+        // Ignore errors from stopping
       }
       recognitionRef.current = null;
     }
@@ -168,21 +142,12 @@ export function useSpeechRecognition({
     recognition.lang = navigator.language || 'en-US';
 
     expectedPinIndexRef.current = pinIndex;
-    waitingForConfirmationRef.current = true;
-
-    const currentPinNumber = sequence[pinIndex];
-    onStatusChange(`Waiting for ${mode === 'number' ? `"${currentPinNumber}"` : `"${keyword}"`}...`);
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      // Use the latest result from the continuous recognition
       const lastResultIndex = event.results.length - 1;
       const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
 
-      // Get the current expected pin from the ref (may have changed during continuous recognition)
-      const expectedPinIndex = expectedPinIndexRef.current;
-      const expectedPinNumber = sequence[expectedPinIndex];
-
-      // Use refs to get current mode and keyword (they may have changed)
+      const expectedPinNumber = sequence[pinIndex];
       const currentMode = modeRef.current;
       const currentKeyword = keywordRef.current;
 
@@ -212,127 +177,66 @@ export function useSpeechRecognition({
       }
 
       if (isMatch) {
-        onStatusChange('✓ Confirmed');
-
-        // Move to next step
-        setTimeout(() => {
-          if (expectedPinIndex < sequence.length - 1) {
-            const nextIndex = expectedPinIndex + 1;
-            onStepAdvance(nextIndex);
-            expectedPinIndexRef.current = nextIndex;
-            const nextPinNumber = sequence[nextIndex];
-            onStatusChange(`Waiting for ${modeRef.current === 'number' ? `"${nextPinNumber}"` : `"${keywordRef.current}"`}...`);
-          } else {
-            onPlayingChange(false);
-            waitingForConfirmationRef.current = false;
-          }
-        }, 300);
+        onMatch();
       } else {
-        onStatusChange(`❌ Said "${transcript}" - try again`);
-        // In continuous mode, just keep listening - no need to restart
+        onStatusUpdate(`❌ Said "${transcript}" - try again`);
+        // Reset status after a delay
         setTimeout(() => {
-          if (isPlayingRef.current && waitingForConfirmationRef.current) {
-            onStatusChange(`Waiting for ${modeRef.current === 'number' ? `"${expectedPinNumber}"` : `"${keywordRef.current}"`}...`);
-          }
+          const expected = currentMode === 'number' ? expectedPinNumber : currentKeyword;
+          onStatusUpdate(`Waiting for ${currentMode === 'number' ? `"${expected}"` : `"${expected}"`}...`);
         }, 800);
       }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      // Handle different error types
-      if (event.error === 'no-speech') {
-        // In continuous mode, this is just a warning - recognition will continue
-        // Don't show anything, as continuous listening should keep going
-      } else if (event.error === 'aborted') {
-        // Aborted errors happen when stop() is called intentionally
-        // This is expected when pausing or disabling, don't restart
-        waitingForConfirmationRef.current = false;
-      } else if (event.error === 'audio-capture' || event.error === 'not-allowed') {
-        // Permission or hardware errors - disable the feature
-        onStatusChange(`Microphone error: ${event.error}`);
-        waitingForConfirmationRef.current = false;
-      } else {
-        // Other errors - just log and stop
-        console.warn('Speech recognition error:', event.error);
-        waitingForConfirmationRef.current = false;
-        onStatusChange(`Recognition error: ${event.error}`);
-      }
+      console.warn('Speech recognition error:', event.error);
+      // Just log errors, don't try to restart - component controls lifecycle
     };
 
     recognition.onend = () => {
-      // Recognition ended - check if this was intentional or unexpected
-      const wasWaitingForConfirmation = waitingForConfirmationRef.current;
-      const wasIntentional = intentionalStopRef.current;
-
-      // Clear state
-      waitingForConfirmationRef.current = false;
       recognitionRef.current = null;
-      intentionalStopRef.current = false;
-
-      // If we were still waiting and this was NOT intentional, restart
-      if (wasWaitingForConfirmation && !wasIntentional && enabledRef.current && isPlayingRef.current) {
-        setTimeout(() => {
-          // Double-check conditions before restarting
-          if (enabledRef.current && isPlayingRef.current && !recognitionRef.current) {
-            startListening(expectedPinIndexRef.current);
-          }
-        }, 200);
-      }
     };
 
     recognitionRef.current = recognition;
     recognition.start();
+
+    // Set initial status
+    const expectedPinNumber = sequence[pinIndex];
+    const expected = mode === 'number' ? expectedPinNumber : keyword;
+    onStatusUpdate(`Waiting for ${mode === 'number' ? `"${expected}"` : `"${expected}"`}...`);
   };
 
-  // Cleanup speech recognition on unmount
+  // Stop recognition
+  const stopRecognition = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Ignore errors from stopping
+      }
+      recognitionRef.current = null;
+    }
+    expectedPinIndexRef.current = null;
+  };
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
-        intentionalStopRef.current = true;
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // Ignore errors from stopping
+        }
         recognitionRef.current = null;
       }
     };
   }, []);
 
-  // Handle enabled state changes
-  useEffect(() => {
-    if (!enabled && recognitionRef.current) {
-      intentionalStopRef.current = true;
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-      waitingForConfirmationRef.current = false;
-      onStatusChange(null);
-    }
-  }, [enabled, onStatusChange]);
-
-  // Update expected pin when current step changes
-  const updateExpectedPin = (pinIndex: number) => {
-    if (enabled && recognitionRef.current) {
-      expectedPinIndexRef.current = pinIndex;
-      const currentPinNumber = sequence[pinIndex];
-      onStatusChange(`Waiting for ${mode === 'number' ? `"${currentPinNumber}"` : `"${keyword}"`}...`);
-    }
-  };
-
-  // Stop recognition
-  const stopRecognition = () => {
-    // Mark this as an intentional stop
-    intentionalStopRef.current = true;
-    waitingForConfirmationRef.current = false;
-
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
-    onStatusChange(null);
-  };
-
   return {
     isSpeechRecognitionSupported,
     startListening,
     stopRecognition,
-    updateExpectedPin,
     isListening: !!recognitionRef.current
   };
 }
