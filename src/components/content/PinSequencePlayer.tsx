@@ -411,7 +411,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
     // Stop any existing recognition
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore errors from stopping (e.g., if already stopped)
+      }
+      recognitionRef.current = null;
     }
 
     const recognition = new SpeechRecognitionAPI();
@@ -451,8 +456,14 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         }, 500);
       } else {
         setRecognitionStatus(`❌ Said "${transcript}" - try again`);
-        // Restart listening
-        setTimeout(() => startListening(pinIndex), 1000);
+        // Clear the flag to prevent onend from also restarting
+        waitingForConfirmationRef.current = false;
+        // Restart listening (startListening will set the flag back to true)
+        setTimeout(() => {
+          if (isPlayingRef.current) {
+            startListening(pinIndex);
+          }
+        }, 1000);
       }
     };
 
@@ -460,12 +471,22 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       // Handle different error types
       if (event.error === 'no-speech') {
         setRecognitionStatus('No speech detected - listening again...');
-        setTimeout(() => startListening(pinIndex), 500);
+        waitingForConfirmationRef.current = false;
+        setTimeout(() => {
+          if (isPlayingRef.current) {
+            startListening(pinIndex);
+          }
+        }, 500);
       } else if (event.error === 'aborted') {
         // Aborted errors happen when stop() is called or a new session starts
         // Only restart if we're still waiting and playing
         if (waitingForConfirmationRef.current && isPlayingRef.current) {
-          setTimeout(() => startListening(pinIndex), 500);
+          waitingForConfirmationRef.current = false;
+          setTimeout(() => {
+            if (isPlayingRef.current) {
+              startListening(pinIndex);
+            }
+          }, 500);
         }
       } else if (event.error === 'audio-capture' || event.error === 'not-allowed') {
         // Permission or hardware errors - don't retry
@@ -475,14 +496,25 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       } else {
         // Other errors - show message but retry
         setRecognitionStatus(`Error: ${event.error} - retrying...`);
-        setTimeout(() => startListening(pinIndex), 1000);
+        waitingForConfirmationRef.current = false;
+        setTimeout(() => {
+          if (isPlayingRef.current) {
+            startListening(pinIndex);
+          }
+        }, 1000);
       }
     };
 
     recognition.onend = () => {
       // If we're still waiting for confirmation and playing, restart
+      // This handles cases where recognition ends without a result (e.g., timeout)
       if (waitingForConfirmationRef.current && isPlayingRef.current) {
-        setTimeout(() => startListening(pinIndex), 500);
+        waitingForConfirmationRef.current = false;
+        setTimeout(() => {
+          if (isPlayingRef.current) {
+            startListening(pinIndex);
+          }
+        }, 500);
       }
     };
 
