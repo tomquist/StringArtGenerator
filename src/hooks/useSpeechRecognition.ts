@@ -120,6 +120,7 @@ export function useSpeechRecognition({
   const enabledRef = useRef(enabled);
   const modeRef = useRef(mode);
   const keywordRef = useRef(keyword);
+  const intentionalStopRef = useRef(false);
 
   // Sync refs with props
   useEffect(() => {
@@ -259,10 +260,24 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
-      // Recognition ended - clear the waiting flag
-      // Component is responsible for restarting if needed
+      // Recognition ended - check if this was intentional or unexpected
+      const wasWaitingForConfirmation = waitingForConfirmationRef.current;
+      const wasIntentional = intentionalStopRef.current;
+
+      // Clear state
       waitingForConfirmationRef.current = false;
       recognitionRef.current = null;
+      intentionalStopRef.current = false;
+
+      // If we were still waiting and this was NOT intentional, restart
+      if (wasWaitingForConfirmation && !wasIntentional && enabledRef.current && isPlayingRef.current) {
+        setTimeout(() => {
+          // Double-check conditions before restarting
+          if (enabledRef.current && isPlayingRef.current && !recognitionRef.current) {
+            startListening(expectedPinIndexRef.current);
+          }
+        }, 200);
+      }
     };
 
     recognitionRef.current = recognition;
@@ -273,6 +288,7 @@ export function useSpeechRecognition({
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
+        intentionalStopRef.current = true;
         recognitionRef.current.stop();
         recognitionRef.current = null;
       }
@@ -282,6 +298,7 @@ export function useSpeechRecognition({
   // Handle enabled state changes
   useEffect(() => {
     if (!enabled && recognitionRef.current) {
+      intentionalStopRef.current = true;
       recognitionRef.current.stop();
       recognitionRef.current = null;
       waitingForConfirmationRef.current = false;
@@ -300,7 +317,8 @@ export function useSpeechRecognition({
 
   // Stop recognition
   const stopRecognition = () => {
-    // Set waiting flag to false FIRST to prevent onend from restarting
+    // Mark this as an intentional stop
+    intentionalStopRef.current = true;
     waitingForConfirmationRef.current = false;
 
     if (recognitionRef.current) {
