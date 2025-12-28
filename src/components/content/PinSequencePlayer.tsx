@@ -160,6 +160,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastStepInfo = useRef<{ time: number; speed: number } | null>(null);
   const isPlayingRef = useRef(state.isPlaying);
@@ -188,6 +189,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
   useEffect(() => {
     speechRecognitionEnabledRef.current = speechRecognition.speechRecognitionEnabled;
+
+    // Cancel any pending recognition start timeout when voice control is disabled
+    if (!speechRecognition.speechRecognitionEnabled && recognitionStartTimeoutRef.current) {
+      clearTimeout(recognitionStartTimeoutRef.current);
+      recognitionStartTimeoutRef.current = null;
+    }
   }, [speechRecognition.speechRecognitionEnabled]);
 
   // Restart recognition when mode or keyword changes while actively listening
@@ -197,13 +204,20 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         state.isPlaying) {
       // Stop current recognition
       speechRecognition.stopRecognition();
+      // Clear any pending start timeout
+      if (recognitionStartTimeoutRef.current) {
+        clearTimeout(recognitionStartTimeoutRef.current);
+        recognitionStartTimeoutRef.current = null;
+      }
       // Restart with new settings after a brief delay
-      setTimeout(() => {
+      recognitionStartTimeoutRef.current = setTimeout(() => {
         if (speechRecognitionEnabledRef.current && isPlayingRef.current) {
           speechRecognition.startListening(state.currentStep);
         }
+        recognitionStartTimeoutRef.current = null;
       }, 100);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speechRecognition.recognitionMode, speechRecognition.confirmationKeyword]);
 
   // Manage screen wake lock
@@ -485,10 +499,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         const baseDelay = 400; // Base delay in ms
         const speedAdjustedDelay = baseDelay / state.speed;
 
-        setTimeout(() => {
+        recognitionStartTimeoutRef.current = setTimeout(() => {
           if (isPlayingRef.current && speechRecognitionEnabledRef.current) {
             speechRecognition.startListening(pinIndex);
           }
+          recognitionStartTimeoutRef.current = null;
         }, speedAdjustedDelay);
       }
     };
@@ -552,6 +567,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       lastStepInfo.current = null;
       window.speechSynthesis.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (recognitionStartTimeoutRef.current) {
+        clearTimeout(recognitionStartTimeoutRef.current);
+        recognitionStartTimeoutRef.current = null;
+      }
       // Stop speech recognition
       speechRecognition.stopRecognition();
     } else {
