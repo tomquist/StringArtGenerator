@@ -568,6 +568,15 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speechRecognitionEnabled]);
 
+  // Update status message when recognition mode or keyword changes
+  useEffect(() => {
+    if (speechRecognitionEnabled && recognitionRef.current && waitingForConfirmationRef.current) {
+      const expectedPinIndex = expectedPinIndexRef.current;
+      const expectedPinNumber = sequence[expectedPinIndex];
+      setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${expectedPinNumber}"` : `"${confirmationKeyword}"`}...`);
+    }
+  }, [recognitionMode, confirmationKeyword, speechRecognitionEnabled, sequence]);
+
   // Playback Logic
   const speakPin = (pinIndex: number) => {
     window.speechSynthesis.cancel();
