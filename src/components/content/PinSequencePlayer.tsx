@@ -127,6 +127,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const waitingForConfirmationRef = useRef(false);
+  const expectedPinIndexRef = useRef(currentStep);
 
   // Sync refs with state
   useEffect(() => {
@@ -420,22 +421,30 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     }
 
     const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = navigator.language || 'en-US';
 
-    const currentPinNumber = sequence[pinIndex];
+    expectedPinIndexRef.current = pinIndex;
     waitingForConfirmationRef.current = true;
+
+    const currentPinNumber = sequence[pinIndex];
     setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${currentPinNumber}"` : `"${confirmationKeyword}"`}...`);
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript.toLowerCase().trim();
+      // Use the latest result from the continuous recognition
+      const lastResultIndex = event.results.length - 1;
+      const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
+
+      // Get the current expected pin from the ref (may have changed during continuous recognition)
+      const expectedPinIndex = expectedPinIndexRef.current;
+      const expectedPinNumber = sequence[expectedPinIndex];
 
       let isMatch = false;
       if (recognitionMode === 'number') {
         // Check if transcript contains the expected number
         const spokenNumber = transcript.match(/\d+/);
-        isMatch = !!(spokenNumber && parseInt(spokenNumber[0], 10) === currentPinNumber);
+        isMatch = !!(spokenNumber && parseInt(spokenNumber[0], 10) === expectedPinNumber);
       } else {
         // Check if transcript contains the confirmation keyword
         isMatch = transcript.includes(confirmationKeyword.toLowerCase());
@@ -443,78 +452,66 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
       if (isMatch) {
         setRecognitionStatus('✓ Confirmed');
-        waitingForConfirmationRef.current = false;
 
         // Move to next step
         setTimeout(() => {
-          if (pinIndex < sequence.length - 1) {
-            setCurrentStep(pinIndex + 1);
+          if (expectedPinIndex < sequence.length - 1) {
+            const nextIndex = expectedPinIndex + 1;
+            setCurrentStep(nextIndex);
+            expectedPinIndexRef.current = nextIndex;
+            const nextPinNumber = sequence[nextIndex];
+            setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${nextPinNumber}"` : `"${confirmationKeyword}"`}...`);
           } else {
             setIsPlaying(false);
+            waitingForConfirmationRef.current = false;
           }
-          setRecognitionStatus(null);
-        }, 500);
+        }, 300);
       } else {
         setRecognitionStatus(`❌ Said "${transcript}" - try again`);
-        // Clear the flag to prevent onend from also restarting
-        waitingForConfirmationRef.current = false;
-        // Restart listening (startListening will set the flag back to true)
+        // In continuous mode, just keep listening - no need to restart
         setTimeout(() => {
-          if (isPlayingRef.current) {
-            startListening(pinIndex);
+          if (isPlayingRef.current && waitingForConfirmationRef.current) {
+            setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${expectedPinNumber}"` : `"${confirmationKeyword}"`}...`);
           }
-        }, 1000);
+        }, 800);
       }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       // Handle different error types
       if (event.error === 'no-speech') {
-        setRecognitionStatus('No speech detected - listening again...');
-        waitingForConfirmationRef.current = false;
-        setTimeout(() => {
-          if (isPlayingRef.current) {
-            startListening(pinIndex);
-          }
-        }, 500);
+        // In continuous mode, this is just a warning - recognition will continue
+        // Don't show anything, as continuous listening should keep going
       } else if (event.error === 'aborted') {
-        // Aborted errors happen when stop() is called or a new session starts
-        // Only restart if we're still waiting and playing
-        if (waitingForConfirmationRef.current && isPlayingRef.current) {
-          waitingForConfirmationRef.current = false;
-          setTimeout(() => {
-            if (isPlayingRef.current) {
-              startListening(pinIndex);
-            }
-          }, 500);
-        }
+        // Aborted errors happen when stop() is called intentionally
+        // This is expected when pausing or disabling, don't restart
       } else if (event.error === 'audio-capture' || event.error === 'not-allowed') {
-        // Permission or hardware errors - don't retry
+        // Permission or hardware errors - disable the feature
         setRecognitionStatus(`Microphone error: ${event.error}`);
         waitingForConfirmationRef.current = false;
         setSpeechRecognitionEnabled(false);
       } else {
-        // Other errors - show message but retry
-        setRecognitionStatus(`Error: ${event.error} - retrying...`);
-        waitingForConfirmationRef.current = false;
-        setTimeout(() => {
-          if (isPlayingRef.current) {
-            startListening(pinIndex);
-          }
-        }, 1000);
+        // Other errors - try to restart in continuous mode
+        console.warn('Speech recognition error:', event.error);
+        if (isPlayingRef.current && waitingForConfirmationRef.current) {
+          setTimeout(() => {
+            if (isPlayingRef.current && waitingForConfirmationRef.current) {
+              startListening(expectedPinIndexRef.current);
+            }
+          }, 500);
+        }
       }
     };
 
     recognition.onend = () => {
-      // If we're still waiting for confirmation and playing, restart
-      // This handles cases where recognition ends without a result (e.g., timeout)
+      // In continuous mode, this shouldn't fire unless there's an error
+      // Restart if we're still waiting and playing
       if (waitingForConfirmationRef.current && isPlayingRef.current) {
-        waitingForConfirmationRef.current = false;
         setTimeout(() => {
-          if (isPlayingRef.current) {
-            startListening(pinIndex);
+          if (isPlayingRef.current && waitingForConfirmationRef.current) {
+            startListening(expectedPinIndexRef.current);
           }
-        }, 500);
+        }, 200);
       }
     };
 
@@ -538,6 +535,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
       recognitionRef.current = null;
       waitingForConfirmationRef.current = false;
       setRecognitionStatus(null);
+    } else if (speechRecognitionEnabled && isSpeechRecognitionSupported && isPlaying) {
+      // When enabling voice confirmation while playing, start listening immediately
+      // This also handles the initial permission request
+      if (!recognitionRef.current) {
+        startListening(currentStep);
+      }
     }
   }, [speechRecognitionEnabled]);
 
@@ -551,13 +554,23 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     if (selectedVoice) utterance.voice = selectedVoice;
     utterance.rate = speed;
     utterance.pitch = 1.0;
+
+    // If speech recognition is enabled, start listening BEFORE speaking
+    // This ensures the user can respond immediately when they hear the number
+    if (speechRecognitionEnabled && !recognitionRef.current) {
+      startListening(pinIndex);
+    } else if (speechRecognitionEnabled && recognitionRef.current) {
+      // Already listening in continuous mode, just update the expected pin
+      expectedPinIndexRef.current = pinIndex;
+      const currentPinNumber = sequence[pinIndex];
+      setRecognitionStatus(`Waiting for ${recognitionMode === 'number' ? `"${currentPinNumber}"` : `"${confirmationKeyword}"`}...`);
+    }
+
     utterance.onend = () => {
       // Use ref to check current playing state to avoid stale closure issues
       if (isPlayingRef.current) {
-         // If speech recognition is enabled, start listening instead of auto-advancing
-         if (speechRecognitionEnabled) {
-           startListening(pinIndex);
-         } else {
+         // If speech recognition is NOT enabled, auto-advance
+         if (!speechRecognitionEnabled) {
            const currentSpeed = speedRef.current;
            const delay = Math.max(500, 1500 / currentSpeed);
            timeoutRef.current = setTimeout(() => {
@@ -568,6 +581,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
              }
            }, delay);
          }
+         // If speech recognition IS enabled, we're already listening in continuous mode
+         // The onresult handler will advance when it hears the correct word
       }
     };
     utteranceRef.current = utterance;
@@ -880,7 +895,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
                 size="sm"
                 onClick={() => setSpeechRecognitionEnabled(!speechRecognitionEnabled)}
               >
-                {speechRecognitionEnabled ? 'Enabled' : 'Disabled'}
+                {speechRecognitionEnabled ? 'Disable Voice Confirmation' : 'Enable Voice Confirmation'}
               </Button>
             </div>
 
