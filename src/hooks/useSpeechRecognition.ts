@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import n2words, { type LanguageCode } from 'n2words';
 
 export type SpeechRecognitionMode = 'number' | 'keyword';
@@ -103,6 +103,9 @@ export function useSpeechRecognition({
   onError,
   onUnexpectedEnd
 }: UseSpeechRecognitionProps) {
+  // State
+  const [isListening, setIsListening] = useState(false);
+
   // Refs
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const modeRef = useRef(mode);
@@ -136,6 +139,7 @@ export function useSpeechRecognition({
         // Ignore errors from stopping
       }
       recognitionRef.current = null;
+      setIsListening(false);
     }
 
     const recognition = new SpeechRecognitionAPI();
@@ -198,6 +202,7 @@ export function useSpeechRecognition({
 
     recognition.onend = () => {
       recognitionRef.current = null;
+      setIsListening(false);
       // Recognition ended unexpectedly (browser may end continuous mode on some events)
       // Notify component so it can restart if still in LISTENING phase
       onUnexpectedEnd();
@@ -206,9 +211,11 @@ export function useSpeechRecognition({
     try {
       recognitionRef.current = recognition;
       recognition.start();
+      setIsListening(true);
     } catch (error) {
       // Handle errors like microphone permission denied
       recognitionRef.current = null;
+      setIsListening(false);
       const errorMessage = error instanceof Error ? error.message : 'Failed to start speech recognition';
       console.warn('Failed to start speech recognition:', errorMessage);
       onError(errorMessage);
@@ -224,6 +231,7 @@ export function useSpeechRecognition({
         // Ignore errors from stopping
       }
       recognitionRef.current = null;
+      setIsListening(false);
     }
     expectedPinIndexRef.current = null;
   };
@@ -238,6 +246,7 @@ export function useSpeechRecognition({
           // Ignore errors from stopping
         }
         recognitionRef.current = null;
+        setIsListening(false);
       }
     };
   }, []);
@@ -246,6 +255,6 @@ export function useSpeechRecognition({
     isSpeechRecognitionSupported,
     startListening,
     stopRecognition,
-    isListening: !!recognitionRef.current
+    isListening
   };
 }
