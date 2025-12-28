@@ -3,7 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { compressSequence, decompressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
-import wordsToNumbers from '@insomnia-dev/words-to-numbers';
+import n2words from 'n2words';
 import {
   Play,
   Pause,
@@ -68,6 +68,33 @@ declare global {
 }
 
 type SpeechRecognitionMode = 'number' | 'keyword';
+
+// Supported language codes by n2words
+type N2WordsLang = 'en' | 'ar' | 'cz' | 'dk' | 'de' | 'es' | 'fr' | 'fa' | 'he' | 'hr' | 'hu' | 'id' | 'it' | 'ko' | 'lt' | 'lv' | 'nl' | 'no' | 'pl' | 'pt' | 'ru' | 'sr' | 'tr' | 'uk' | 'vi' | 'zh';
+
+// Helper function to check if transcript matches a number in any supported language
+function matchesSpokenNumber(transcript: string, expectedNumber: number, language: string): boolean {
+  try {
+    // Get the language code (e.g., 'en' from 'en-US')
+    const langCode = language.split('-')[0];
+
+    // Supported languages by n2words
+    const supportedLangs: N2WordsLang[] = ['en', 'ar', 'cz', 'dk', 'de', 'es', 'fr', 'fa', 'he', 'hr', 'hu', 'id', 'it', 'ko', 'lt', 'lv', 'nl', 'no', 'pl', 'pt', 'ru', 'sr', 'tr', 'uk', 'vi', 'zh'];
+
+    if (!supportedLangs.includes(langCode as N2WordsLang)) {
+      return false;
+    }
+
+    // Generate the word form of the expected number in the detected language
+    const numberAsWords = n2words(expectedNumber, { lang: langCode as N2WordsLang }).toLowerCase();
+
+    // Check if the transcript contains the number as words
+    return transcript.includes(numberAsWords);
+  } catch {
+    // If language not supported by n2words or conversion fails, return false
+    return false;
+  }
+}
 
 interface PinSequencePlayerProps {
   sequence: number[];
@@ -449,19 +476,12 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           isMatch = true;
         }
 
-        // Strategy 2: Convert spoken words to number (e.g., "forty two" -> 42, "one" -> 1)
+        // Strategy 2: Check if transcript matches spoken number in the recognition language
         if (!isMatch) {
-          try {
-            const convertedNumber = wordsToNumbers(transcript);
-            if (typeof convertedNumber === 'number' && convertedNumber === expectedPinNumber) {
-              isMatch = true;
-            }
-          } catch {
-            // Ignore conversion errors
-          }
+          isMatch = matchesSpokenNumber(transcript, expectedPinNumber, recognition.lang);
         }
 
-        // Strategy 3: Check if transcript includes the number as a string
+        // Strategy 3: Check if transcript includes the number as a string (fallback)
         if (!isMatch) {
           const expectedString = expectedPinNumber.toString();
           if (transcript.includes(expectedString)) {
