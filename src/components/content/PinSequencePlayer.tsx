@@ -408,12 +408,16 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
         clearTimeout(timeoutRef.current);
       }
 
+      // Capture current values to avoid stale closure
+      const currentStep = state.currentStep;
+      const seqLen = sequence.length;
+
       // Schedule auto-advance
       const currentSpeed = speedRef.current;
       const delay = Math.max(500, 1500 / currentSpeed);
       timeoutRef.current = setTimeout(() => {
-        if (state.currentStep < sequence.length - 1) {
-          dispatch({ type: 'SET_CURRENT_STEP', payload: state.currentStep + 1 });
+        if (currentStep < seqLen - 1) {
+          dispatch({ type: 'SET_CURRENT_STEP', payload: currentStep + 1 });
         } else {
           dispatch({ type: 'SET_IS_PLAYING', payload: false });
         }

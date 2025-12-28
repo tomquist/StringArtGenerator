@@ -203,8 +203,16 @@ export function useSpeechRecognition({
       onUnexpectedEnd();
     };
 
-    recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (error) {
+      // Handle errors like microphone permission denied
+      recognitionRef.current = null;
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start speech recognition';
+      console.warn('Failed to start speech recognition:', errorMessage);
+      onError(errorMessage);
+    }
   };
 
   // Stop recognition
