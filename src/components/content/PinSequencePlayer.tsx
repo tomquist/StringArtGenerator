@@ -3,7 +3,6 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { compressSequence, decompressSequence } from '../../lib/utils/sequenceCompression';
 import { calculatePins } from '../../lib/algorithms/pinCalculation';
-import wordsToNumbers from 'words-to-numbers';
 import {
   Play,
   Pause,
@@ -449,19 +448,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
           isMatch = true;
         }
 
-        // Strategy 2: Convert spoken number words to integer (e.g., "forty two" -> 42)
-        if (!isMatch) {
-          try {
-            const convertedNumber = wordsToNumbers(transcript);
-            if (typeof convertedNumber === 'number' && convertedNumber === expectedPinNumber) {
-              isMatch = true;
-            }
-          } catch {
-            // Ignore conversion errors
-          }
-        }
-
-        // Strategy 3: Check if transcript includes the number as a string
+        // Strategy 2: Check if transcript includes the number as a string
         if (!isMatch) {
           const expectedString = expectedPinNumber.toString();
           if (transcript.includes(expectedString)) {
