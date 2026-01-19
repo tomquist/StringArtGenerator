@@ -58,6 +58,11 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [sampleCount, setSampleCount] = useState(0);
   const [compressedSeqString, setCompressedSeqString] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | 'none'>('none');
+  const [outgoingPin, setOutgoingPin] = useState<{ value: number | null; direction: 'next' | 'prev' | null }>({
+    value: null,
+    direction: null
+  });
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -67,6 +72,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const previousStepRef = useRef(currentStep);
+  const transitionTimeoutRef = useRef<number | null>(null);
 
   // Sync refs with state
   useEffect(() => {
@@ -145,6 +152,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     setAvgTimeMetric(null);
     setSampleCount(0);
     lastStepInfo.current = null;
+    previousStepRef.current = initialStep;
+    setTransitionDirection('none');
+    setOutgoingPin({ value: null, direction: null });
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     window.speechSynthesis.cancel();
   }, [sequence, initialStep]);
@@ -399,6 +409,42 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, isPlaying]); // speed is purposefully excluded to avoid re-triggering during playback
 
+  useEffect(() => {
+    const previousStep = previousStepRef.current;
+    if (previousStep === currentStep) return;
+
+    const direction = currentStep > previousStep ? 'next' : 'prev';
+    setTransitionDirection(direction);
+
+    if (direction === 'next') {
+      setOutgoingPin({
+        value: previousStep > 0 ? sequence[previousStep - 1] : null,
+        direction: 'next'
+      });
+    } else {
+      setOutgoingPin({
+        value: previousStep < sequence.length - 1 ? sequence[previousStep + 1] : null,
+        direction: 'prev'
+      });
+    }
+
+    previousStepRef.current = currentStep;
+
+    if (transitionTimeoutRef.current) {
+      window.clearTimeout(transitionTimeoutRef.current);
+    }
+    transitionTimeoutRef.current = window.setTimeout(() => {
+      setTransitionDirection('none');
+      setOutgoingPin({ value: null, direction: null });
+    }, 260);
+
+    return () => {
+      if (transitionTimeoutRef.current) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, [currentStep, sequence]);
+
   const togglePlay = () => {
     if (isPlaying) {
       setIsPlaying(false);
@@ -490,6 +536,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Use measured average if available, otherwise heuristic
   const timePerStep = avgTimeMetric ? (avgTimeMetric / speed) : calculateTimePerPin(speed);
   const estimatedSeconds = Math.max(0, remainingSteps * timePerStep);
+  const previousPin = currentStep > 0 ? sequence[currentStep - 1] : null;
+  const nextPin = currentStep < sequence.length - 1 ? sequence[currentStep + 1] : null;
 
   return (
     <Card className="card-hover border-2 mt-8">
@@ -564,8 +612,35 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
           {/* Number & Progress */}
           <div className="flex-1 flex flex-col items-center w-full">
-            <div className="text-display-lg font-bold text-primary">
-              {sequence[currentStep]}
+            <div className="hfp-carousel">
+              {outgoingPin.value !== null && (
+                <div
+                  className={`hfp-item ${outgoingPin.direction === 'next' ? 'hfp-outgoing-left' : 'hfp-outgoing-right'}`}
+                  aria-hidden="true"
+                >
+                  {outgoingPin.value}
+                </div>
+              )}
+              <div
+                className={`hfp-item ${transitionDirection === 'next' ? 'hfp-animate-left-next' : ''} ${transitionDirection === 'prev' ? 'hfp-animate-left-prev' : ''}`}
+                data-position="left"
+                aria-hidden="true"
+              >
+                {previousPin ?? ''}
+              </div>
+              <div
+                className={`hfp-item ${transitionDirection === 'next' ? 'hfp-animate-center-next' : ''} ${transitionDirection === 'prev' ? 'hfp-animate-center-prev' : ''}`}
+                data-position="center"
+              >
+                {sequence[currentStep]}
+              </div>
+              <div
+                className={`hfp-item ${transitionDirection === 'next' ? 'hfp-animate-right-next' : ''} ${transitionDirection === 'prev' ? 'hfp-animate-right-prev' : ''}`}
+                data-position="right"
+                aria-hidden="true"
+              >
+                {nextPin ?? ''}
+              </div>
             </div>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-body-sm text-subtle">Step</span>
