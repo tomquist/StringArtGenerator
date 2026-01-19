@@ -190,6 +190,195 @@
     box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
   }
 
+  .hfp-carousel {
+    position: relative;
+    height: 5rem;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .hfp-item {
+    position: absolute;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
+    color: hsl(var(--primary));
+    line-height: 1;
+    transition: transform 240ms ease, opacity 240ms ease, font-size 240ms ease;
+    will-change: transform, opacity, font-size;
+  }
+
+  .hfp-item[data-position="left"] {
+    transform: translateX(-72px) scale(0.72);
+    opacity: 0.35;
+    font-size: var(--font-size-4xl);
+  }
+
+  .hfp-item[data-position="center"] {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    font-size: var(--font-size-6xl);
+  }
+
+  .hfp-item[data-position="right"] {
+    transform: translateX(72px) scale(0.72);
+    opacity: 0.35;
+    font-size: var(--font-size-4xl);
+  }
+
+  .hfp-animate-left-next {
+    animation: hfp-left-next 240ms ease forwards;
+  }
+
+  .hfp-animate-center-next {
+    animation: hfp-center-next 240ms ease forwards;
+  }
+
+  .hfp-animate-right-next {
+    animation: hfp-right-next 240ms ease forwards;
+  }
+
+  .hfp-animate-left-prev {
+    animation: hfp-left-prev 240ms ease forwards;
+  }
+
+  .hfp-animate-center-prev {
+    animation: hfp-center-prev 240ms ease forwards;
+  }
+
+  .hfp-animate-right-prev {
+    animation: hfp-right-prev 240ms ease forwards;
+  }
+
+  .hfp-outgoing-left {
+    animation: hfp-outgoing-left 240ms ease forwards;
+  }
+
+  .hfp-outgoing-right {
+    animation: hfp-outgoing-right 240ms ease forwards;
+  }
+
+  @keyframes hfp-left-next {
+    from {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+      font-size: var(--font-size-6xl);
+    }
+    to {
+      transform: translateX(-72px) scale(0.72);
+      opacity: 0.35;
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  @keyframes hfp-center-next {
+    from {
+      transform: translateX(72px) scale(0.72);
+      opacity: 0;
+      font-size: var(--font-size-4xl);
+    }
+    to {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+      font-size: var(--font-size-6xl);
+    }
+  }
+
+  @keyframes hfp-right-next {
+    from {
+      transform: translateX(72px) scale(0.72);
+      opacity: 0;
+      font-size: var(--font-size-4xl);
+    }
+    to {
+      transform: translateX(72px) scale(0.72);
+      opacity: 0.35;
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  @keyframes hfp-left-prev {
+    from {
+      transform: translateX(-72px) scale(0.72);
+      opacity: 0;
+      font-size: var(--font-size-4xl);
+    }
+    to {
+      transform: translateX(-72px) scale(0.72);
+      opacity: 0.35;
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  @keyframes hfp-center-prev {
+    from {
+      transform: translateX(-72px) scale(0.72);
+      opacity: 0;
+      font-size: var(--font-size-4xl);
+    }
+    to {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+      font-size: var(--font-size-6xl);
+    }
+  }
+
+  @keyframes hfp-right-prev {
+    from {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+      font-size: var(--font-size-6xl);
+    }
+    to {
+      transform: translateX(72px) scale(0.72);
+      opacity: 0.35;
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  @keyframes hfp-outgoing-left {
+    from {
+      transform: translateX(-72px) scale(0.72);
+      opacity: 0.35;
+      font-size: var(--font-size-4xl);
+    }
+    to {
+      transform: translateX(-120px) scale(0.6);
+      opacity: 0;
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  @keyframes hfp-outgoing-right {
+    from {
+      transform: translateX(72px) scale(0.72);
+      opacity: 0.35;
+      font-size: var(--font-size-4xl);
+    }
+    to {
+      transform: translateX(120px) scale(0.6);
+      opacity: 0;
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hfp-item,
+    .hfp-animate-left-next,
+    .hfp-animate-center-next,
+    .hfp-animate-right-next,
+    .hfp-animate-left-prev,
+    .hfp-animate-center-prev,
+    .hfp-animate-right-prev,
+    .hfp-outgoing-left,
+    .hfp-outgoing-right {
+      animation: none;
+      transition: none;
+    }
+  }
+
   /* Subtle button press effect */
   .button-press {
     @apply transition-all duration-150 ease-out;
