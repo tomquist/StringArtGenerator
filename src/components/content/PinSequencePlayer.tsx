@@ -58,6 +58,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [sampleCount, setSampleCount] = useState(0);
   const [compressedSeqString, setCompressedSeqString] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | null>(null);
+  const [transitionSteps, setTransitionSteps] = useState<{ from: number; to: number } | null>(null);
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -67,6 +69,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousStepRef = useRef(currentStep);
 
   // Sync refs with state
   useEffect(() => {
@@ -145,6 +149,10 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     setAvgTimeMetric(null);
     setSampleCount(0);
     lastStepInfo.current = null;
+    setTransitionDirection(null);
+    setTransitionSteps(null);
+    previousStepRef.current = initialStep;
+    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     window.speechSynthesis.cancel();
   }, [sequence, initialStep]);
@@ -490,6 +498,50 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Use measured average if available, otherwise heuristic
   const timePerStep = avgTimeMetric ? (avgTimeMetric / speed) : calculateTimePerPin(speed);
   const estimatedSeconds = Math.max(0, remainingSteps * timePerStep);
+  const transitionDurationMs = 300;
+
+  useEffect(() => {
+    const prevStep = previousStepRef.current;
+    if (prevStep === currentStep) return;
+
+    const direction = currentStep > prevStep ? 'next' : 'prev';
+    setTransitionDirection(direction);
+    setTransitionSteps({ from: prevStep, to: currentStep });
+
+    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    transitionTimeoutRef.current = setTimeout(() => {
+      setTransitionDirection(null);
+      setTransitionSteps(null);
+    }, transitionDurationMs);
+
+    previousStepRef.current = currentStep;
+
+    return () => {
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    };
+  }, [currentStep, transitionDurationMs]);
+
+  const renderNumberLayer = (step: number, layer: 'from' | 'to' | 'single') => {
+    const prevNumber = step > 0 ? sequence[step - 1] : null;
+    const currentNumber = sequence[step];
+    const nextNumber = step < sequence.length - 1 ? sequence[step + 1] : null;
+    const directionClass = transitionDirection ? `pin-carousel--${transitionDirection}` : '';
+    const layerClass = layer === 'single' ? '' : `pin-carousel-layer--${layer}`;
+
+    return (
+      <div className={`pin-carousel-layer ${layerClass} ${directionClass}`}>
+        <span className="pin-carousel-item pin-carousel-item--prev">
+          {prevNumber ?? ''}
+        </span>
+        <span className="pin-carousel-item pin-carousel-item--current">
+          {currentNumber}
+        </span>
+        <span className="pin-carousel-item pin-carousel-item--next">
+          {nextNumber ?? ''}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <Card className="card-hover border-2 mt-8">
@@ -564,8 +616,15 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
           {/* Number & Progress */}
           <div className="flex-1 flex flex-col items-center w-full">
-            <div className="text-display-lg font-bold text-primary">
-              {sequence[currentStep]}
+            <div className="pin-carousel-stack" aria-live="polite">
+              {transitionDirection && transitionSteps ? (
+                <>
+                  {renderNumberLayer(transitionSteps.from, 'from')}
+                  {renderNumberLayer(transitionSteps.to, 'to')}
+                </>
+              ) : (
+                renderNumberLayer(currentStep, 'single')
+              )}
             </div>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-body-sm text-subtle">Step</span>

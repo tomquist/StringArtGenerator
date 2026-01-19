@@ -434,6 +434,93 @@
     transform-origin: center;
   }
 
+  .pin-carousel-stack {
+    @apply relative w-full max-w-xs h-20;
+  }
+
+  .pin-carousel-layer {
+    @apply absolute inset-0 grid items-center;
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .pin-carousel-item {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .pin-carousel-item--prev,
+  .pin-carousel-item--next {
+    font-size: var(--font-size-2xl);
+    line-height: var(--line-height-2xl);
+    font-weight: var(--font-weight-semibold);
+    color: hsl(var(--muted-foreground));
+    opacity: 0.6;
+  }
+
+  .pin-carousel-item--prev {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .pin-carousel-item--current {
+    justify-self: center;
+    font-size: var(--font-size-5xl);
+    line-height: var(--line-height-5xl);
+    font-weight: var(--font-weight-bold);
+    color: hsl(var(--primary));
+  }
+
+  .pin-carousel-item--next {
+    justify-self: start;
+    text-align: left;
+  }
+
+  .pin-carousel-layer--from.pin-carousel--next .pin-carousel-item--prev {
+    animation: pin-carousel-prev-exit-next 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--from.pin-carousel--next .pin-carousel-item--current {
+    animation: pin-carousel-current-to-prev 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--from.pin-carousel--next .pin-carousel-item--next {
+    animation: pin-carousel-next-fade-out 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--to.pin-carousel--next .pin-carousel-item--current {
+    animation: pin-carousel-next-to-current 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--from.pin-carousel--prev .pin-carousel-item--next {
+    animation: pin-carousel-next-exit-prev 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--from.pin-carousel--prev .pin-carousel-item--current {
+    animation: pin-carousel-current-to-next 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--from.pin-carousel--prev .pin-carousel-item--prev {
+    animation: pin-carousel-prev-fade-out 300ms ease forwards;
+  }
+
+  .pin-carousel-layer--to.pin-carousel--prev .pin-carousel-item--current {
+    animation: pin-carousel-prev-to-current 300ms ease forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pin-carousel-item,
+    .pin-carousel-layer--from.pin-carousel--next .pin-carousel-item--prev,
+    .pin-carousel-layer--from.pin-carousel--next .pin-carousel-item--current,
+    .pin-carousel-layer--from.pin-carousel--next .pin-carousel-item--next,
+    .pin-carousel-layer--to.pin-carousel--next .pin-carousel-item--current,
+    .pin-carousel-layer--from.pin-carousel--prev .pin-carousel-item--next,
+    .pin-carousel-layer--from.pin-carousel--prev .pin-carousel-item--current,
+    .pin-carousel-layer--from.pin-carousel--prev .pin-carousel-item--prev,
+    .pin-carousel-layer--to.pin-carousel--prev .pin-carousel-item--current {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
   /* Touch ripple effect */
   .touch-ripple {
     position: relative;
@@ -629,5 +716,93 @@
 
   .tap-highlight-transparent {
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@keyframes pin-carousel-prev-exit-next {
+  from {
+    opacity: 0.6;
+    transform: translateX(0) scale(0.75);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-24px) scale(0.65);
+  }
+}
+
+@keyframes pin-carousel-current-to-prev {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0.6;
+    transform: translateX(-48px) scale(0.72);
+  }
+}
+
+@keyframes pin-carousel-next-to-current {
+  from {
+    opacity: 0;
+    transform: translateX(48px) scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes pin-carousel-next-fade-out {
+  from {
+    opacity: 0.6;
+    transform: translateX(0) scale(0.75);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px) scale(0.65);
+  }
+}
+
+@keyframes pin-carousel-next-exit-prev {
+  from {
+    opacity: 0.6;
+    transform: translateX(0) scale(0.75);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px) scale(0.65);
+  }
+}
+
+@keyframes pin-carousel-current-to-next {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0.6;
+    transform: translateX(48px) scale(0.72);
+  }
+}
+
+@keyframes pin-carousel-prev-fade-out {
+  from {
+    opacity: 0.6;
+    transform: translateX(0) scale(0.75);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-24px) scale(0.65);
+  }
+}
+
+@keyframes pin-carousel-prev-to-current {
+  from {
+    opacity: 0;
+    transform: translateX(-48px) scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
