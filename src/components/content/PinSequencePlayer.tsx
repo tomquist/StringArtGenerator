@@ -58,6 +58,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [sampleCount, setSampleCount] = useState(0);
   const [compressedSeqString, setCompressedSeqString] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [animationPhase, setAnimationPhase] = useState<'idle' | 'start' | 'end'>('idle');
+  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | null>(null);
+  const [outgoingStep, setOutgoingStep] = useState(initialStep);
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -67,6 +70,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const previousStepRef = useRef(currentStep);
 
   // Sync refs with state
   useEffect(() => {
@@ -490,6 +494,98 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Use measured average if available, otherwise heuristic
   const timePerStep = avgTimeMetric ? (avgTimeMetric / speed) : calculateTimePerPin(speed);
   const estimatedSeconds = Math.max(0, remainingSteps * timePerStep);
+  const animationDurationMs = 300;
+  const animationOffsetPx = 56;
+
+  useEffect(() => {
+    if (currentStep === previousStepRef.current) return;
+    const direction = currentStep > previousStepRef.current ? 'next' : 'prev';
+    setOutgoingStep(previousStepRef.current);
+    setTransitionDirection(direction);
+    setAnimationPhase('start');
+
+    const rafId = requestAnimationFrame(() => setAnimationPhase('end'));
+    const timer = window.setTimeout(() => {
+      setAnimationPhase('idle');
+      setTransitionDirection(null);
+    }, animationDurationMs);
+
+    previousStepRef.current = currentStep;
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
+  }, [currentStep]);
+
+  const getStepNumbers = (step: number) => {
+    return {
+      prev: step > 0 ? sequence[step - 1] : null,
+      current: sequence[step],
+      next: step < sequence.length - 1 ? sequence[step + 1] : null
+    };
+  };
+
+  const baseSlotStyle = {
+    prev: { x: -animationOffsetPx, scale: 0.6, opacity: 0.4 },
+    current: { x: 0, scale: 1, opacity: 1 },
+    next: { x: animationOffsetPx, scale: 0.6, opacity: 0.4 }
+  };
+
+  const outgoingTargetStyle = {
+    next: {
+      prev: { x: -animationOffsetPx, scale: 0.6, opacity: 0 },
+      current: baseSlotStyle.prev,
+      next: baseSlotStyle.current
+    },
+    prev: {
+      prev: baseSlotStyle.current,
+      current: baseSlotStyle.next,
+      next: { x: animationOffsetPx, scale: 0.6, opacity: 0 }
+    }
+  };
+
+  const incomingStartStyle = {
+    next: {
+      prev: { x: -animationOffsetPx, scale: 0.6, opacity: 0 },
+      current: { x: animationOffsetPx, scale: 0.6, opacity: 0 },
+      next: { x: animationOffsetPx * 2, scale: 0.6, opacity: 0 }
+    },
+    prev: {
+      prev: { x: -animationOffsetPx * 2, scale: 0.6, opacity: 0 },
+      current: { x: -animationOffsetPx, scale: 0.6, opacity: 0 },
+      next: { x: animationOffsetPx, scale: 0.6, opacity: 0 }
+    }
+  };
+
+  const getSlotStyle = (
+    slot: keyof typeof baseSlotStyle,
+    layer: 'outgoing' | 'incoming'
+  ): React.CSSProperties => {
+    const base = baseSlotStyle[slot];
+    if (animationPhase === 'idle' || !transitionDirection) {
+      return {
+        transform: `translateX(${base.x}px) scale(${base.scale})`,
+        opacity: base.opacity
+      };
+    }
+
+    if (layer === 'outgoing') {
+      const target = outgoingTargetStyle[transitionDirection][slot];
+      const style = animationPhase === 'start' ? base : target;
+      return {
+        transform: `translateX(${style.x}px) scale(${style.scale})`,
+        opacity: style.opacity
+      };
+    }
+
+    const incomingStart = incomingStartStyle[transitionDirection][slot];
+    const incomingStyle = animationPhase === 'start' ? incomingStart : base;
+    return {
+      transform: `translateX(${incomingStyle.x}px) scale(${incomingStyle.scale})`,
+      opacity: incomingStyle.opacity
+    };
+  };
 
   return (
     <Card className="card-hover border-2 mt-8">
@@ -564,8 +660,47 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
           {/* Number & Progress */}
           <div className="flex-1 flex flex-col items-center w-full">
-            <div className="text-display-lg font-bold text-primary">
-              {sequence[currentStep]}
+            <div
+              className="relative h-16 w-full max-w-xs overflow-hidden"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {(['prev', 'current', 'next'] as const).map((slot) => {
+                const outgoingNumbers = getStepNumbers(outgoingStep);
+                const incomingNumbers = getStepNumbers(currentStep);
+                const outgoingValue = outgoingNumbers[slot];
+                const incomingValue = incomingNumbers[slot];
+                return (
+                  <React.Fragment key={slot}>
+                    {outgoingValue !== null && (animationPhase !== 'idle' || transitionDirection) && (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center text-primary font-bold transition-all ease-in-out"
+                        style={{
+                          ...getSlotStyle(slot, 'outgoing'),
+                          transitionDuration: `${animationDurationMs}ms`
+                        }}
+                      >
+                        <span className={slot === 'current' ? 'text-display-lg' : 'text-2xl'}>
+                          {outgoingValue}
+                        </span>
+                      </div>
+                    )}
+                    {incomingValue !== null && (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center text-primary font-bold transition-all ease-in-out"
+                        style={{
+                          ...getSlotStyle(slot, 'incoming'),
+                          transitionDuration: `${animationDurationMs}ms`
+                        }}
+                      >
+                        <span className={slot === 'current' ? 'text-display-lg' : 'text-2xl'}>
+                          {incomingValue}
+                        </span>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-body-sm text-subtle">Step</span>
