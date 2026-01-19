@@ -58,6 +58,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const [sampleCount, setSampleCount] = useState(0);
   const [compressedSeqString, setCompressedSeqString] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exitingIndex, setExitingIndex] = useState<number | null>(null);
+  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | null>(null);
 
   // Refs
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -67,6 +69,7 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const prevStepRef = useRef(initialStep);
 
   // Sync refs with state
   useEffect(() => {
@@ -145,6 +148,9 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     setAvgTimeMetric(null);
     setSampleCount(0);
     lastStepInfo.current = null;
+    prevStepRef.current = initialStep;
+    setExitingIndex(null);
+    setTransitionDirection(null);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     window.speechSynthesis.cancel();
   }, [sequence, initialStep]);
@@ -336,6 +342,24 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     window.history.replaceState({}, '', url.toString());
   }, [currentStep, compressedSeqString]);
 
+  useEffect(() => {
+    const prevStep = prevStepRef.current;
+    if (prevStep === currentStep) return;
+    const direction = currentStep > prevStep ? 'next' : 'prev';
+    setTransitionDirection(direction);
+    const outgoingIndex =
+      direction === 'next'
+        ? (prevStep > 0 ? prevStep - 1 : null)
+        : (prevStep < sequence.length - 1 ? prevStep + 1 : null);
+    setExitingIndex(outgoingIndex);
+    const timeout = window.setTimeout(() => {
+      setExitingIndex(null);
+      setTransitionDirection(null);
+    }, 300);
+    prevStepRef.current = currentStep;
+    return () => window.clearTimeout(timeout);
+  }, [currentStep, sequence.length]);
+
   // Playback Logic
   const speakPin = (pinIndex: number) => {
     window.speechSynthesis.cancel();
@@ -490,6 +514,8 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
   // Use measured average if available, otherwise heuristic
   const timePerStep = avgTimeMetric ? (avgTimeMetric / speed) : calculateTimePerPin(speed);
   const estimatedSeconds = Math.max(0, remainingSteps * timePerStep);
+  const prevIndex = currentStep > 0 ? currentStep - 1 : null;
+  const nextIndex = currentStep < sequence.length - 1 ? currentStep + 1 : null;
 
   return (
     <Card className="card-hover border-2 mt-8">
@@ -564,8 +590,28 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
 
           {/* Number & Progress */}
           <div className="flex-1 flex flex-col items-center w-full">
-            <div className="text-display-lg font-bold text-primary">
-              {sequence[currentStep]}
+            <div className="pin-carousel" aria-live="polite">
+              {prevIndex !== null && (
+                <span className="pin-carousel__item text-display-lg text-subtle" data-position="prev">
+                  {sequence[prevIndex]}
+                </span>
+              )}
+              {nextIndex !== null && (
+                <span className="pin-carousel__item text-display-lg text-subtle" data-position="next">
+                  {sequence[nextIndex]}
+                </span>
+              )}
+              {exitingIndex !== null && (
+                <span
+                  className="pin-carousel__item pin-carousel__item--exit text-display-lg text-subtle"
+                  data-exit-direction={transitionDirection || undefined}
+                >
+                  {sequence[exitingIndex]}
+                </span>
+              )}
+              <span className="pin-carousel__item text-display-lg text-primary" data-position="current">
+                {sequence[currentStep]}
+              </span>
             </div>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-body-sm text-subtle">Step</span>

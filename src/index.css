@@ -621,6 +621,55 @@
     filter: brightness(0.95);
   }
 
+  .pin-carousel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 4.5rem;
+    overflow: hidden;
+  }
+
+  .pin-carousel__item {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 300ms ease, opacity 300ms ease;
+    opacity: 0.5;
+    will-change: transform, opacity;
+  }
+
+  .pin-carousel__item[data-position="prev"] {
+    transform: translateX(-3.5rem) scale(0.6);
+    z-index: 1;
+  }
+
+  .pin-carousel__item[data-position="current"] {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    z-index: 2;
+  }
+
+  .pin-carousel__item[data-position="next"] {
+    transform: translateX(3.5rem) scale(0.6);
+    z-index: 1;
+  }
+
+  .pin-carousel__item--exit {
+    opacity: 0;
+    z-index: 0;
+  }
+
+  .pin-carousel__item--exit[data-exit-direction="next"] {
+    transform: translateX(-5.5rem) scale(0.5);
+  }
+
+  .pin-carousel__item--exit[data-exit-direction="prev"] {
+    transform: translateX(5.5rem) scale(0.5);
+  }
+
   /* Mobile navigation optimizations */
   .nav-mobile {
     @apply touch-target;
