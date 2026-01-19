@@ -413,6 +413,16 @@ export const PinSequencePlayer: React.FC<PinSequencePlayerProps> = ({
     const previousStep = previousStepRef.current;
     if (previousStep === currentStep) return;
 
+    if (Math.abs(currentStep - previousStep) > 1) {
+      if (transitionTimeoutRef.current) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
+      setTransitionDirection('none');
+      setOutgoingPin({ value: null, direction: null });
+      previousStepRef.current = currentStep;
+      return;
+    }
+
     const direction = currentStep > previousStep ? 'next' : 'prev';
     setTransitionDirection(direction);
 
